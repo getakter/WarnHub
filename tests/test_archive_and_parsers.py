@@ -43,6 +43,9 @@ def test_archive_is_content_addressed_and_immutable(artifact_root):
     ("From: a@b\nTo: c@d\nSubject: x\nMessage-ID: <1>\n\nbody".encode(), "", "", "eml"),
     ("আগামী ২৪ ঘণ্টায় বৃষ্টি".encode(), "", "", "txt"),
     (b"a,b\n1,2", "data.csv", "", "csv"),
+    (b'{"data": {"Scroll": []}}', "", "text/html; charset=UTF-8", "json"),
+    (b"[1, 2]", "", "application/json", "json"),
+    (b"[not json", "", "", "txt"),
     (b"\x00\x01\x02\x03\x04" * 50, "", "", "unknown"),
 ])
 def test_detect_file_type(data, name, ctype, expected):

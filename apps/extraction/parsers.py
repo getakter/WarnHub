@@ -3,6 +3,7 @@ import csv
 import datetime as dt
 import email
 import io
+import json
 import re
 import zipfile
 from collections import Counter
@@ -382,6 +383,21 @@ class TxtParser(ParserPlugin):
         text, doc.encoding = decode_bytes(data, override=_encoding_override(settings), content_type=content_type,
                                           warnings=doc.warnings)
         doc.text = clean_text(text)
+        return doc
+
+
+@register
+class JsonParser(ParserPlugin):
+    name = "json"
+    label = "JSON (API response)"
+    file_types = ("json",)
+
+    def parse(self, data, *, filename="", content_type="", url="", options=None, settings=None):
+        doc = ParsedDocument(file_type="json")
+        text, doc.encoding = decode_bytes(data, override=_encoding_override(settings), content_type=content_type,
+                                          warnings=doc.warnings)
+        doc.data = json.loads(text)
+        doc.text = json.dumps(doc.data, ensure_ascii=False, indent=1)  # use a JSON fields rule to pick values
         return doc
 
 

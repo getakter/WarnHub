@@ -1,5 +1,6 @@
 """Detect our normalized file type from bytes, file name and Content-Type."""
 import io
+import json
 import mimetypes
 import re
 import zipfile
@@ -9,7 +10,7 @@ from urllib.parse import unquote, urlparse
 EXTENSIONS = {
     ".html": "html", ".htm": "html", ".xhtml": "html", ".php": "html", ".aspx": "html", ".asp": "html", ".jsp": "html",
     ".pdf": "pdf", ".docx": "docx", ".doc": "doc", ".xlsx": "xlsx", ".xlsm": "xlsx", ".xls": "xls",
-    ".csv": "csv", ".txt": "txt", ".text": "txt", ".rtf": "rtf", ".eml": "eml", ".zip": "zip",
+    ".csv": "csv", ".json": "json", ".txt": "txt", ".text": "txt", ".rtf": "rtf", ".eml": "eml", ".zip": "zip",
     ".jpg": "image", ".jpeg": "image", ".png": "image", ".gif": "image", ".tif": "image", ".tiff": "image",
     ".webp": "image", ".bmp": "image",
 }
@@ -18,13 +19,13 @@ CONTENT_TYPES = {
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
     "application/msword": "doc",
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
-    "application/vnd.ms-excel": "xls", "text/csv": "csv", "text/plain": "txt",
+    "application/vnd.ms-excel": "xls", "text/csv": "csv", "application/json": "json", "text/plain": "txt",
     "application/rtf": "rtf", "text/rtf": "rtf", "message/rfc822": "eml",
     "application/zip": "zip", "application/x-zip-compressed": "zip",
 }
 EXTENSION_FOR_TYPE = {
     "html": ".html", "pdf": ".pdf", "docx": ".docx", "doc": ".doc", "xlsx": ".xlsx", "xls": ".xls", "csv": ".csv",
-    "txt": ".txt", "rtf": ".rtf", "eml": ".eml", "zip": ".zip", "image": ".img", "unknown": ".bin",
+    "json": ".json", "txt": ".txt", "rtf": ".rtf", "eml": ".eml", "zip": ".zip", "image": ".img", "unknown": ".bin",
 }
 _EML_HEADER = re.compile(rb"^(Received|From|Return-Path|Message-ID|MIME-Version|Delivered-To|Subject|Date):", re.I | re.M)
 
@@ -79,7 +80,9 @@ def detect_file_type(data, filename="", content_type="", url=""):
         return "html"
     if by_ext == "eml" or ctype == "message/rfc822" or (len(_EML_HEADER.findall(head)) >= 3 and by_ext is None):
         return "eml"
-    if by_ext in {"csv", "txt", "html", "eml"}:
+    if sniff.startswith((b"{", b"[")) and _is_json(data):  # API responses are often served as text/html
+        return "json"
+    if by_ext in {"csv", "txt", "html", "eml", "json"}:
         return by_ext
     if ctype in CONTENT_TYPES and CONTENT_TYPES[ctype] not in {"zip", "pdf", "docx", "xlsx", "doc", "xls"}:
         return CONTENT_TYPES[ctype]
@@ -90,6 +93,14 @@ def detect_file_type(data, filename="", content_type="", url=""):
     if _looks_like_text(head):
         return "txt"
     return "unknown"
+
+
+def _is_json(data):
+    try:
+        json.loads(data.decode("utf-8-sig"))
+        return True
+    except (UnicodeDecodeError, ValueError):
+        return False
 
 
 def _looks_like_text(head):

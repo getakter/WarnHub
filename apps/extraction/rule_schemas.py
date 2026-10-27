@@ -104,6 +104,26 @@ REGEX_RULE = {
     },
 }
 
+JSON_FIELDS = {
+    "type": "object",
+    "required": ["fields"],
+    "properties": {
+        "items_path": {"type": "string", "title": "Path to the item(s)",
+                       "description": "Dotted path from the top of the JSON; list indexes are numbers. A list makes "
+                                      "one message per entry. Blank = the whole document.",
+                       "examples": ["data.Scroll", "data.items", "results.0"]},
+        "fields": {"type": "object", "additionalProperties": {"type": "string"}, "title": "Fields per item",
+                   "description": "field = dotted path inside the item. title, summary (body), body_html, link, "
+                                  "date are core fields; other names go to extra fields.",
+                   "default": {"title": "title", "summary": "body"},
+                   "examples": [{"body_html": "setvalue", "date": "timeUpdate"}]},
+        "strip_html": {"type": "boolean", "default": True, "title": "Convert HTML values to plain text",
+                       "description": "For title / summary and extra fields (body_html always keeps the HTML)."},
+        "skip_items_without": {"type": "array", "items": {"type": "string"}, "default": [],
+                               "title": "Skip items missing any of these fields"},
+    },
+}
+
 PDF_RULE = {
     "type": "object",
     "properties": {

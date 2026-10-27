@@ -2,10 +2,10 @@
 
 Built-in defaults are the schema ``default`` values. Higher layers only store what they override.
 """
-FILE_TYPES = ["html", "pdf", "docx", "doc", "xlsx", "xls", "csv", "txt", "rtf", "image", "eml", "zip"]
+FILE_TYPES = ["html", "pdf", "docx", "doc", "xlsx", "xls", "csv", "json", "txt", "rtf", "image", "eml", "zip"]
 FILE_TYPE_LABELS = {
     "html": "Web page (HTML)", "pdf": "PDF", "docx": "Word (.docx)", "doc": "Word 97-2003 (.doc)",
-    "xlsx": "Excel (.xlsx)", "xls": "Excel 97-2003 (.xls)", "csv": "CSV", "txt": "Plain text",
+    "xlsx": "Excel (.xlsx)", "xls": "Excel 97-2003 (.xls)", "csv": "CSV", "json": "JSON (API response)", "txt": "Plain text",
     "rtf": "RTF", "image": "Image (jpg/png/gif/tiff/webp)", "eml": "Email (.eml)", "zip": "ZIP archive",
 }
 

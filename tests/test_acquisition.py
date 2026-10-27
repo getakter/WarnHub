@@ -136,6 +136,43 @@ def test_web_page_feed_end_to_end_with_versions(feed, http):
         (1, "new", False), (2, "updated", True)]
 
 
+BMD_SCROLL = {"data": {"Slides": [{"setvalue": "file/a.jpg"}], "Scroll": [{
+    "id": "1", "setkey": "scrollTop", "timeUpdate": "2026-10-27 10:41:59",
+    "setvalue": "<p><strong><span style=\"color:#FF0000\">অতি প্রবল ঘূর্ণিঝড় &ldquo;অর্ণব&rdquo; উপকূল অতিক্রম করতে পারে।"
+                "</span></strong></p>\r\n<p>&nbsp;</p>"}]}}
+
+
+@pytest.mark.django_db
+def test_json_scroll_feed_new_message_per_text(feed, http):
+    """BMD's homepage news scroll comes from a JSON endpoint; each new scroll text is a new message."""
+    import json
+
+    url = "https://server8.bmd.gov.bd/bn/slider_json/"
+    _configure(feed, "web_page", [url], settings={"dedupe": {"key_from": "content_hash"}})
+    ExtractionRule.objects.create(feed=feed, name="scroll", position=10, rule_type="json_fields", on_no_match="fail",
+                                  config={"items_path": "data.Scroll", "skip_items_without": ["body_html"],
+                                          "fields": {"body_html": "setvalue", "date": "timeUpdate"}})
+    ExtractionRule.objects.create(feed=feed, name="date", position=20, rule_type="date",
+                                  config={"source": "field", "field": "date"})
+    http.get(url, body=json.dumps(BMD_SCROLL, ensure_ascii=False).encode("utf-8"),
+             headers={"Content-Type": "text/html; charset=UTF-8"})  # served with the wrong type on purpose
+    ctx = run_feed(feed)
+    assert ctx.status == "success", ctx.events
+    message = CollectedMessage.objects.get()
+    assert message.raw_artifact.file_type == "json"
+    assert message.body_text == "অতি প্রবল ঘূর্ণিঝড় “অর্ণব” উপকূল অতিক্রম করতে পারে।"
+    assert message.title == message.body_text
+    assert message.published_at == dt.datetime(2026, 10, 27, 4, 41, 59, tzinfo=dt.timezone.utc)
+
+    run_feed(feed)
+    assert CollectedMessage.objects.count() == 1
+    BMD_SCROLL["data"]["Scroll"][0]["setvalue"] = "<p>ঘূর্ণিঝড় দুর্বল হয়ে নিম্নচাপে পরিণত হয়েছে।</p>"
+    http.replace(responses.GET, url, body=json.dumps(BMD_SCROLL, ensure_ascii=False).encode("utf-8"),
+                 headers={"Content-Type": "application/json"})
+    run_feed(feed)
+    assert sorted(CollectedMessage.objects.values_list("status", flat=True)) == ["new", "new"]
+
+
 @pytest.mark.django_db
 def test_web_page_pagination_by_pattern(feed, http):
     _configure(feed, "web_page", ["https://dae.gov.bd/notices"],

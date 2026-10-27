@@ -9,7 +9,8 @@ from apps.extraction.dates import find_dates, parse_date
 from apps.extraction.engine import RuleContext
 from apps.extraction.fields import ConstantField, CssField, LabelAfterField, MetadataField, RegexField, XPathField
 from apps.extraction.rules import (
-    DateRule, HtmlSelectorRule, ListingItemsRule, RegexRule, SectionSplitRule, resolve_callable,
+    DateRule, HtmlSelectorRule, JsonFieldsRule, ListingItemsRule, RegexRule, SectionSplitRule, json_path,
+    resolve_callable,
 )
 
 DHAKA = ZoneInfo("Asia/Dhaka")
@@ -166,6 +167,50 @@ def test_regex_named_groups_map_and_all_as_items():
     ctx = ctx_for()
     RegexRule({"pattern": "zzz"}).apply([item_for(text=text)], ctx)
     assert not ctx.matched
+
+
+# --- json_fields ---------------------------------------------------------------------
+NOTICES = {"data": {"items": [
+    {"id": 7, "head": "Signal 3", "body": "<p><b>Hoist signal 3 &amp; stay alert</b></p>", "url": "/n/7",
+     "meta": {"issued": "2026-10-27"}},
+    {"id": 8, "head": "", "body": "no title"},
+]}}
+
+
+def json_ctx(data):
+    ctx = ctx_for()
+    ctx.document = ParsedDocument(file_type="json", data=data)
+    return ctx
+
+
+def test_json_path_walks_dicts_and_list_indexes():
+    assert json_path(NOTICES, "data.items.0.meta.issued") == "2026-10-27"
+    assert json_path(NOTICES, "data.items.-1.id") == 8
+    assert json_path(NOTICES, "data.items.5.id") is None and json_path(NOTICES, "data.nope") is None
+    assert json_path(NOTICES, "") is NOTICES
+
+
+def test_json_fields_one_message_per_entry():
+    rule = JsonFieldsRule({"items_path": "data.items", "skip_items_without": ["title"],
+                           "fields": {"title": "head", "summary": "body", "link": "url", "date": "meta.issued",
+                                      "notice_id": "id"}})
+    out = rule.apply([item_for()], json_ctx(NOTICES))
+    assert len(out) == 1
+    assert (out[0].title, out[0].body_text, out[0].source_url) == ("Signal 3", "Hoist signal 3 & stay alert",
+                                                                  "https://bmd.gov.bd/n/7")
+    assert out[0].published_at_text == "2026-10-27" and out[0].fields == {"notice_id": "7"}
+
+
+def test_json_fields_body_html_and_no_match():
+    rule = JsonFieldsRule({"items_path": "data.items.0", "fields": {"body_html": "body"}})
+    (item,) = rule.apply([item_for()], json_ctx(NOTICES))
+    assert item.body_html.startswith("<p>") and item.body_text == "Hoist signal 3 & stay alert"
+    ctx = json_ctx(NOTICES)
+    JsonFieldsRule({"items_path": "data.missing", "fields": {"title": "head"}}).apply([item_for()], ctx)
+    assert not ctx.matched
+    ctx = ctx_for()
+    JsonFieldsRule({"fields": {"title": "head"}}).apply([item_for()], ctx)
+    assert ctx.no_match_reason == "the document is not JSON"
 
 
 # --- date rule -----------------------------------------------------------------------

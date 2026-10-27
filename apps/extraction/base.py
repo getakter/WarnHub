@@ -22,6 +22,7 @@ class ParsedDocument:
     warnings: list = field(default_factory=list)
     pages: int = 0
     encoding: str = ""
+    data: object = None  # decoded JSON (json file type)
 
     def flag(self, name):
         if name not in self.quality_flags:

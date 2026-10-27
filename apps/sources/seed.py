@@ -81,6 +81,19 @@ PROFILES = [
         "rules": [{"name": "Entry date", "rule_type": "date", "config": {"source": "metadata"}}],
     },
     {
+        "slug": "json-api",
+        "name": "JSON endpoint (site API)",
+        "description": "A JSON URL the site's own pages load (find it in the browser's Network tab). "
+                       "Set the paths in the JSON fields rule; each new text becomes a new message.",
+        "method": "web_page",
+        "settings": {"files": {"allowed_types": ["json"]}, "dedupe": {"key_from": "content_hash"}},
+        "rules": [
+            {"name": "JSON fields", "rule_type": "json_fields", "on_no_match": "fail",
+             "config": {"items_path": "", "fields": {"title": "title", "summary": "body", "date": "date"}}},
+            {"name": "Date (from JSON)", "rule_type": "date", "config": {"source": "field", "field": "date"}},
+        ],
+    },
+    {
         "slug": "email-with-attachment",
         "name": "Email with PDF attachment",
         "description": "Bulletins received by email (body and/or PDF/Word attachments). Use with a mailbox rule.",

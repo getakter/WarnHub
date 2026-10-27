@@ -1,6 +1,7 @@
 """Built-in extraction rule types (see engine.py for the plugin contract)."""
 import copy
 import importlib
+import json
 import re
 from urllib.parse import urljoin
 
@@ -141,6 +142,77 @@ class ListingItemsRule(ExtractorPlugin):
                 out.append(new)
         if not out:
             ctx.no_match(f"no items matched {cfg['item_selector']!r}")
+            return items
+        return out
+
+
+_HTML_TAG = re.compile(r"<[a-zA-Z/!][^>]*>|&[a-zA-Z]+;|&#\d+;")
+
+
+def json_path(data, path):
+    """'data.Scroll.0.setvalue' -> value, or None when any step is missing."""
+    node = data
+    for part in (path or "").split("."):
+        if part == "":
+            continue
+        if isinstance(node, dict) and part in node:
+            node = node[part]
+        elif isinstance(node, list) and part.lstrip("-").isdigit() and -len(node) <= int(part) < len(node):
+            node = node[int(part)]
+        else:
+            return None
+    return node
+
+
+@register
+class JsonFieldsRule(ExtractorPlugin):
+    name = "json_fields"
+    label = "JSON field extraction"
+    description = "Pick values from a JSON response by dotted path; each entry of a list can become a message."
+    config_schema = S.JSON_FIELDS
+    produces_items = True
+
+    def apply(self, items, ctx):
+        from .parsers import html_to_text
+
+        cfg = self.config
+        if ctx.document.data is None:
+            ctx.no_match("the document is not JSON")
+            return items
+        found = json_path(ctx.document.data, cfg.get("items_path", ""))
+        entries = found if isinstance(found, list) else [] if found is None else [found]
+        base = items[0] if items else Item(source_url=ctx.url)
+        out = []
+        for index, entry in enumerate(entries, start=1):
+            values = {}
+            for name, path in (cfg.get("fields") or {}).items():
+                value = json_path(entry, path)
+                if isinstance(value, (dict, list)):
+                    value = json.dumps(value, ensure_ascii=False)
+                values[name] = "" if value is None else str(value).strip()
+            if any(not values.get(name) for name in cfg.get("skip_items_without") or []):
+                continue
+            new = Item(meta=dict(base.meta), source_url=base.source_url, link_text=base.link_text,
+                       quality_flags=list(base.quality_flags), attention=list(base.attention))
+            for name, value in values.items():
+                if not value:
+                    continue
+                if name == "body_html":
+                    new.body_html = value
+                    if not values.get("summary"):
+                        new.body_text = html_to_text(value)
+                    continue
+                if cfg.get("strip_html", True) and _HTML_TAG.search(value):
+                    value = html_to_text(value)
+                target = CORE_LISTING_FIELDS.get(name, name)
+                if target == "source_url":
+                    value = urljoin(ctx.url, value) if ctx.url else value
+                new.set(target, value)
+            if len(entries) > 1 and not values.get("link") and not values.get("url"):
+                new.source_item_key = f"{base.source_url}#item:{_key_suffix(new.title or new.body_text[:80]) or index}"
+            out.append(new)
+        if not out:
+            ctx.no_match(f"no items at {cfg.get('items_path') or '(top level)'!r}")
             return items
         return out
 
