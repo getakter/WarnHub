@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% load ewce %}
+{% block title %}Test: {{ feed }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h4 mb-0">Test run (nothing saved): {{ feed }} {{ status|status_badge }}</h1>
+  <div class="d-flex gap-2">
+    <form method="post" action="{% url 'ui:feed_test' feed.pk %}">{% csrf_token %}<button class="btn btn-sm btn-outline-success"><i class="bi bi-arrow-repeat"></i> Test again</button></form>
+    <form method="post" action="{% url 'ui:feed_run_now' feed.pk %}">{% csrf_token %}<button class="btn btn-sm btn-success" data-confirm="Run for real and save?"><i class="bi bi-play-fill"></i> Run now</button></form>
+    <a class="btn btn-sm btn-outline-secondary" href="{{ feed.get_absolute_url }}"><i class="bi bi-arrow-left"></i> Feed</a>
+  </div>
+</div>
+<p class="small text-secondary">Statuses show what a real run would do now: <em>new</em> = would be saved, <em>unchanged</em> = already collected,
+  <em>updated</em> = would become a new version, <em>filtered_out</em> = saved but filtered by keywords. Items already collected from the same URL may be skipped by listing feeds.</p>
+<div class="mb-3 small">{% for k, v in stats %}<span class="badge text-bg-light border me-1">{{ k }} {{ v }}</span>{% endfor %}</div>
+<div class="card mb-3">{% include "ui/tools/_result_items.html" %}</div>
+<div class="card"><div class="card-header fw-semibold">Log</div>
+  <ul class="list-group list-group-flush small">{% for e in events %}<li class="list-group-item {% if e.level == 'error' %}list-group-item-danger{% elif e.level == 'warning' %}list-group-item-warning{% endif %}">[{{ e.level }}] {{ e.message }}</li>{% endfor %}</ul></div>
+{% endblock %}

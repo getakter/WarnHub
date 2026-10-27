@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Keyword sets{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h4 mb-0">Keyword sets <small class="text-secondary fs-6">used to filter and to record matched keywords</small></h1>
+  {% if is_ewce_admin %}<a class="btn btn-primary btn-sm" href="{% url 'ui:keywordset_create' %}"><i class="bi bi-plus-lg"></i> New keyword set</a>{% endif %}
+</div>
+<div class="card"><table class="table table-hover mb-0 table-config">
+  <thead><tr><th>Name</th><th>Keywords</th><th>Feeds</th><th>Status</th></tr></thead>
+  <tbody>{% for kset in sets %}
+    <tr><td><a href="{{ kset.get_absolute_url }}">{{ kset.name }}</a> {% if kset.is_example %}<span class="badge text-bg-light border">example</span>{% endif %}<div class="small text-secondary">{{ kset.description|truncatechars:120 }}</div></td>
+      <td>{{ kset.keyword_count }}</td><td>{{ kset.feed_count }}</td>
+      <td>{% if kset.is_active %}<span class="badge text-bg-success">active</span>{% else %}<span class="badge text-bg-light">inactive</span>{% endif %}</td></tr>
+  {% empty %}<tr><td colspan="4" class="text-secondary">No keyword sets.</td></tr>{% endfor %}</tbody>
+</table></div>
+{% endblock %}

@@ -1,0 +1,28 @@
+{% load ewce %}
+{% for error in errors %}<div class="alert alert-danger py-2 small">{{ error }}</div>{% endfor %}
+{% if not errors %}
+  {% if history is not None %}
+    <h3 class="h6">Re-extracting stored artifacts with the edited {{ target }}</h3>
+    <p class="small text-secondary"><span class="badge text-bg-secondary">unchanged</span> = same result as stored;
+      <span class="badge text-bg-info text-dark">updated</span> / <span class="badge text-bg-primary">new</span> = the change would produce different messages.</p>
+    {% for row in history %}
+      <div class="card mb-2"><div class="card-header small d-flex justify-content-between">
+        <span><a href="{% url 'ui:artifact_download' row.artifact.pk %}" target="_blank">{{ row.artifact }}</a> · {{ row.artifact.fetched_at|date:"d M Y H:i" }}</span>
+        {% if row.error %}<span class="text-danger">{{ row.error }}</span>{% elif row.changed %}<span class="badge text-bg-warning">{{ row.changed }} would change</span>{% else %}<span class="badge text-bg-success">no change</span>{% endif %}</div>
+        <div class="card-body p-2">
+          <div class="small text-secondary mb-1">Stored now: {% for m in row.stored %}<a href="{{ m.get_absolute_url }}" target="_blank">#{{ m.pk }} {{ m.title|truncatechars:40 }}</a> ({{ m.status }}){% if not forloop.last %}, {% endif %}{% empty %}nothing{% endfor %}</div>
+          {% include "ui/tools/_result_items.html" with results=row.results %}
+        </div></div>
+    {% empty %}<p class="text-secondary small">This feed has no stored artifacts yet. Run or upload first.</p>
+    {% endfor %}
+  {% else %}
+    {% if highlight %}
+      <div class="mb-3"><div class="small mb-1"><strong>{{ highlight.count }}</strong> element{{ highlight.count|pluralize }} matched the rule's selector{% if highlight.error %} — <span class="text-danger">{{ highlight.error }}</span>{% endif %} (highlighted in red)</div>
+        {% if highlight.preview %}<iframe class="w-100 border rounded" style="height:420px" sandbox="allow-same-origin" srcdoc="{{ highlight.preview }}" title="Highlighted matches"></iframe>{% endif %}</div>
+    {% endif %}
+    <div class="small mb-2">Result: {% for k, v in stats %}<span class="me-2">{{ k }} <strong>{{ v }}</strong></span>{% endfor %}</div>
+    {% include "ui/tools/_result_items.html" %}
+    {% if events %}<details class="mt-2" {% if has_failures %}open{% endif %}><summary class="small">Log ({{ events|length }})</summary>
+      <ul class="small mb-0">{% for e in events %}<li class="{% if e.level == 'error' %}text-danger{% elif e.level == 'warning' %}text-warning-emphasis{% endif %}">[{{ e.level }}] {{ e.message }}</li>{% endfor %}</ul></details>{% endif %}
+  {% endif %}
+{% endif %}

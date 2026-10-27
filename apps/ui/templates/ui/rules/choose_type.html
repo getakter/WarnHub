@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Add rule{% endblock %}
+{% block content %}
+<h1 class="h4">Add an extraction rule to {{ feed }}</h1>
+<div class="row g-3">
+  {% for name, plugin in plugins.items %}
+  <div class="col-md-6 col-lg-4"><a class="text-decoration-none" href="?type={{ name }}"><div class="card h-100"><div class="card-body">
+    <h2 class="h6">{{ plugin.label }} {% if not plugin.builtin %}<span class="badge text-bg-info">custom</span>{% endif %}</h2>
+    <p class="small text-secondary mb-0">{{ plugin.description }}</p>
+  </div></div></a></div>
+  {% endfor %}
+</div>
+{% endblock %}

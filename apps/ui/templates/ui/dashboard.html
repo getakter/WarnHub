@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% load ewce humanize %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+{% for warning in db_warnings %}<div class="alert alert-warning"><i class="bi bi-exclamation-triangle"></i> {{ warning }}</div>{% endfor %}
+{% for path, error in plugin_errors %}<div class="alert alert-danger small"><strong>Plugin failed to load:</strong> {{ path }}<pre class="mb-0 small">{{ error }}</pre></div>{% endfor %}
+{% if not worker_alive %}
+<div class="alert alert-secondary d-flex align-items-center gap-2"><i class="bi bi-pause-circle fs-5"></i>
+  <div><strong>No background worker is running</strong>, so scheduled feeds are not collected. Start it in a second terminal:
+    <code>.\.venv\Scripts\python manage.py run_worker</code></div></div>
+{% endif %}
+{% if problem_feeds %}
+<div class="alert alert-danger"><div class="fw-semibold mb-1"><i class="bi bi-exclamation-octagon"></i> {{ problem_feeds|length }} feed{{ problem_feeds|length|pluralize }} need{{ problem_feeds|length|pluralize:"s," }} attention</div>
+  <ul class="mb-0 small">{% for feed in problem_feeds %}<li>{{ feed.health_status|status_badge:feed.get_health_status_display }} <a href="{{ feed.get_absolute_url }}">{{ feed }}</a> — {{ feed.health_detail|truncatechars:220 }}</li>{% endfor %}</ul></div>
+{% endif %}
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-2"><a class="text-decoration-none" href="{% url 'ui:feed_list' %}"><div class="card stat-card h-100"><div class="card-body"><div class="text-secondary small">Feeds (active)</div><div class="display-6">{{ counts.feeds }} <small class="fs-6 text-success">{{ counts.active_feeds }} on</small></div></div></div></a></div>
+  <div class="col-6 col-lg-2"><a class="text-decoration-none" href="{% url 'ui:message_list' %}"><div class="card stat-card h-100"><div class="card-body"><div class="text-secondary small">Collected messages</div><div class="display-6">{{ counts.messages|intcomma }}</div></div></div></a></div>
+  <div class="col-6 col-lg-2"><a class="text-decoration-none" href="{% url 'ui:message_list' %}?status=needs_attention&status=extraction_failed"><div class="card stat-card h-100 {% if needs_attention %}border-warning{% endif %}"><div class="card-body"><div class="text-secondary small">Need attention / failed</div><div class="display-6">{{ needs_attention|intcomma }}</div></div></div></a></div>
+  <div class="col-6 col-lg-2"><a class="text-decoration-none" href="{% url 'ui:message_list' %}?status=unrouted"><div class="card stat-card h-100 {% if unrouted %}border-warning{% endif %}"><div class="card-body"><div class="text-secondary small">Unrouted emails</div><div class="display-6">{{ unrouted|intcomma }}</div></div></div></a></div>
+  <div class="col-6 col-lg-2"><div class="card stat-card h-100"><div class="card-body"><div class="text-secondary small">Worker</div>
+    <div class="fs-5 mt-2">{% if worker_alive %}<span class="text-success"><i class="bi bi-circle-fill small"></i> running</span>{% else %}<span class="text-secondary"><i class="bi bi-circle small"></i> stopped</span>{% endif %}</div>
+    {% for w in workers %}{% if w.alive %}<div class="small text-secondary">{{ w.hostname }} · {{ w.running_feeds|length }} running</div>{% endif %}{% endfor %}</div></div></div>
+  <div class="col-6 col-lg-2"><div class="card stat-card h-100"><div class="card-body"><div class="text-secondary small">Configuration</div>
+    <div class="small mt-1"><a href="{% url 'ui:source_list' %}">{{ counts.sources }} sources</a> · <a href="{% url 'ui:profile_list' %}">{{ counts.profiles }} profiles</a><br>
+      <a href="{% url 'ui:keywordset_list' %}">{{ counts.keyword_sets }} keyword sets</a> · <a href="{% url 'ui:mailbox_list' %}">{{ counts.mailboxes }} mailboxes</a></div>
+    <div class="small mt-1"><a class="text-decoration-none" href="{% url 'ui:plugins' %}" title="{{ optional.ocr_message }}">OCR {% if optional.ocr %}<span class="text-success">on</span>{% else %}<span class="text-secondary">off</span>{% endif %} · JS {% if optional.js %}<span class="text-success">on</span>{% else %}<span class="text-secondary">off</span>{% endif %}</a></div></div></div></div>
+</div>
+
+<div class="row g-4">
+  <div class="col-xl-8">
+    <div class="d-flex justify-content-between align-items-center mb-2"><h2 class="h5 mb-0">Source & feed health</h2>
+      <span class="small">{% for code, label, n in health_counts %}{% if n %}<span class="ms-2">{{ code|status_badge:label }} {{ n }}</span>{% endif %}{% endfor %}</span></div>
+    <div class="row g-3">
+    {% for source in sources %}
+      <div class="col-md-6"><div class="card h-100" style="border-left:4px solid {{ source.color }}">
+        <div class="card-header d-flex justify-content-between"><a class="fw-semibold" href="{{ source.get_absolute_url }}">{{ source.name }}</a><code>{{ source.code }}</code></div>
+        <ul class="list-group list-group-flush small">
+        {% for feed in source.feeds.all %}
+          <li class="list-group-item">
+            <div class="d-flex justify-content-between align-items-center gap-2">
+              <a href="{{ feed.get_absolute_url }}">{{ feed.name }}</a>
+              <span class="text-nowrap">{% if not feed.is_active %}<span class="badge text-bg-light border">disabled</span>{% else %}{{ feed.health_status|status_badge:feed.get_health_status_display }}{% endif %}</span>
+            </div>
+            <div class="text-secondary">last success {{ feed.last_success_at|naturaltime|default:"never" }} · last new {{ feed.last_new_message_at|naturaltime|default:"never" }}{% if feed.next_run_at %} · next {{ feed.next_run_at|naturaltime }}{% endif %}</div>
+            {% if feed.is_active and feed.health_status != "healthy" and feed.health_detail %}<div class="text-danger-emphasis">{{ feed.health_detail|truncatechars:160 }}</div>{% endif %}
+          </li>
+        {% empty %}<li class="list-group-item text-secondary">No feeds.</li>{% endfor %}
+        </ul>
+      </div></div>
+    {% empty %}<p class="text-secondary">No sources yet. <a href="{% url 'ui:source_create' %}">Add one</a>.</p>
+    {% endfor %}
+    </div>
+  </div>
+  <div class="col-xl-4">
+    <div class="card mb-4"><div class="card-header fw-semibold d-flex justify-content-between">Errors in the last 24 h <a class="small" href="{% url 'ui:run_list' %}?status=failed">failed runs</a></div>
+      <ul class="list-group list-group-flush small">{% for e in recent_errors %}
+        <li class="list-group-item"><a href="{{ e.run.get_absolute_url }}">#{{ e.run_id }}</a> {{ e.run.feed|default:e.run.mailbox|default:"upload" }} · {{ e.created_at|naturaltime }}<div class="text-danger">{{ e.message|truncatechars:180 }}</div></li>
+      {% empty %}<li class="list-group-item text-secondary">No errors.</li>{% endfor %}</ul></div>
+    <div class="card mb-4"><div class="card-header fw-semibold">Messages by status</div>
+      <ul class="list-group list-group-flush">{% for code, label, n in status_counts %}<li class="list-group-item d-flex justify-content-between py-1"><a class="text-decoration-none" href="{% url 'ui:message_list' %}?status={{ code }}">{{ code|status_badge:label }}</a><span>{{ n|intcomma }}</span></li>{% endfor %}</ul></div>
+    <div class="card mb-4"><div class="card-header fw-semibold">Mailboxes</div>
+      <ul class="list-group list-group-flush small">{% for m in mailboxes %}
+        <li class="list-group-item d-flex justify-content-between"><span><a href="{{ m.get_absolute_url }}">{{ m.label }}</a>{% if m.last_error %}<div class="text-danger">{{ m.last_error|truncatechars:120 }}</div>{% endif %}</span>
+          <span class="text-nowrap">{% if m.is_active %}<span class="badge text-bg-success">active</span>{% else %}<span class="badge text-bg-light border">disabled</span>{% endif %}<div class="text-secondary">{{ m.last_polled_at|naturaltime|default:"never polled" }}</div></span></li>
+      {% empty %}<li class="list-group-item text-secondary">No mailboxes.</li>{% endfor %}</ul></div>
+    <div class="card mb-4"><div class="card-header fw-semibold d-flex justify-content-between">Recent runs <a class="small" href="{% url 'ui:run_list' %}">all</a></div>
+      <ul class="list-group list-group-flush small">{% for run in recent_runs %}<li class="list-group-item d-flex justify-content-between"><a href="{{ run.get_absolute_url }}">#{{ run.pk }} {{ run.feed|default:run.mailbox|default:"upload" }}</a><span>{{ run.get_trigger_display }} {{ run.status|status_badge }}</span></li>
+      {% empty %}<li class="list-group-item text-secondary">No runs yet.</li>{% endfor %}</ul></div>
+    <div class="card"><div class="card-header fw-semibold d-flex justify-content-between">Recent changes <a class="small" href="{% url 'ui:audit' %}">all</a></div>
+      <ul class="list-group list-group-flush small">{% for entry in recent_audit %}<li class="list-group-item"><span class="text-secondary">{{ entry.created_at|naturaltime }}</span> · {{ entry.user|default:"system" }} · {{ entry.action }} <em>{{ entry.object_repr|truncatechars:50 }}</em></li>
+      {% empty %}<li class="list-group-item text-secondary">Nothing yet.</li>{% endfor %}</ul></div>
+  </div>
+</div>
+{% endblock %}

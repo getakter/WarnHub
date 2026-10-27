@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% load ewce humanize %}
+{% block title %}Feeds{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h4 mb-0">Feeds <small class="text-secondary fs-6">sections of a source, each collected one way</small></h1>
+  <div class="d-flex gap-2">
+    <form method="get"><select name="source" class="form-select form-select-sm" onchange="this.form.submit()">
+      <option value="">All sources</option>{% for s in sources %}<option value="{{ s.pk }}" {% if source_id == s.pk|stringformat:"s" %}selected{% endif %}>{{ s.code }}</option>{% endfor %}
+    </select></form>
+    {% if is_ewce_admin %}<a class="btn btn-primary btn-sm text-nowrap" href="{% url 'ui:feed_create' %}"><i class="bi bi-plus-lg"></i> New feed</a>{% endif %}
+  </div>
+</div>
+<div class="card"><div class="table-responsive"><table class="table table-hover mb-0 table-config">
+  <thead><tr><th>Feed</th><th>Method</th><th>Profile</th><th>Schedule</th><th>Rules</th><th>Messages</th><th>Health</th><th>Status</th></tr></thead>
+  <tbody>
+  {% for feed in feeds %}
+    <tr>
+      <td><span class="color-dot" style="background:{{ feed.source.color }}"></span> <a href="{{ feed.get_absolute_url }}">{{ feed }}</a></td>
+      <td class="small">{{ feed.method }}</td>
+      <td class="small">{{ feed.profile|default:"—" }}</td>
+      <td class="small">{% if feed.schedule_type == "interval" %}every {{ feed.interval_minutes }} min{% elif feed.schedule_type == "cron" %}<code>{{ feed.cron_expression }}</code>{% else %}manual{% endif %}</td>
+      <td>{{ feed.rule_count }}</td>
+      <td>{{ feed.message_count|intcomma }}</td>
+      <td>{{ feed.health_status|status_badge:feed.get_health_status_display }}</td>
+      <td>{% if feed.is_active %}<span class="badge text-bg-success">enabled</span>{% else %}<span class="badge text-bg-light">disabled</span>{% endif %}</td>
+    </tr>
+  {% empty %}<tr><td colspan="8" class="text-secondary">No feeds.</td></tr>
+  {% endfor %}
+  </tbody>
+</table></div></div>
+{% endblock %}

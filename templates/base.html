@@ -1,0 +1,64 @@
+{% load static %}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{{ product_name }}{% endblock %} · {{ product_name }}</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='7' fill='%23dc3545'/%3E%3Ccircle cx='8' cy='8' r='2.5' fill='white'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="{% static 'vendor/bootstrap/bootstrap.min.css' %}">
+  <link rel="stylesheet" href="{% static 'vendor/bootstrap-icons/bootstrap-icons.min.css' %}">
+  <link rel="stylesheet" href="{% static 'ewce/app.css' %}">
+</head>
+<body>
+<nav class="navbar navbar-expand-lg bg-body-tertiary border-bottom mb-3">
+  <div class="container-fluid">
+    <a class="navbar-brand fw-semibold" href="{% url 'ui:dashboard' %}"><i class="bi bi-broadcast-pin text-danger"></i> {{ product_name }}</a>
+    {% if user.is_authenticated %}
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#nav"><span class="navbar-toggler-icon"></span></button>
+    <div class="collapse navbar-collapse" id="nav">
+      <ul class="navbar-nav me-auto">
+        <li class="nav-item"><a class="nav-link" href="{% url 'ui:dashboard' %}">Dashboard</a></li>
+        <li class="nav-item"><a class="nav-link" href="{% url 'ui:message_list' %}">Messages</a></li>
+        <li class="nav-item"><a class="nav-link" href="{% url 'ui:upload' %}"><i class="bi bi-upload"></i> Upload</a></li>
+        <li class="nav-item"><a class="nav-link" href="{% url 'ui:run_list' %}">Runs</a></li>
+        <li class="nav-item"><a class="nav-link" href="{% url 'ui:inspect_url' %}"><i class="bi bi-search"></i> Inspect URL</a></li>
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Configure</a>
+          <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="{% url 'ui:source_list' %}"><i class="bi bi-building"></i> Sources</a></li>
+            <li><a class="dropdown-item" href="{% url 'ui:feed_list' %}"><i class="bi bi-rss"></i> Feeds</a></li>
+            <li><a class="dropdown-item" href="{% url 'ui:profile_list' %}"><i class="bi bi-layers"></i> Format profiles</a></li>
+            <li><a class="dropdown-item" href="{% url 'ui:keywordset_list' %}"><i class="bi bi-tags"></i> Keyword sets</a></li>
+            <li><a class="dropdown-item" href="{% url 'ui:mailbox_list' %}"><i class="bi bi-envelope"></i> Mailboxes</a></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item" href="{% url 'ui:config_io' %}"><i class="bi bi-arrow-left-right"></i> Import / export</a></li>
+            <li><a class="dropdown-item" href="{% url 'ui:plugins' %}"><i class="bi bi-puzzle"></i> Plugins</a></li>
+            <li><a class="dropdown-item" href="{% url 'ui:audit' %}"><i class="bi bi-journal-text"></i> Audit log</a></li>
+          </ul>
+        </li>
+        {% block extra_nav %}{% endblock %}
+      </ul>
+      <span class="navbar-text me-3 small">
+        <i class="bi bi-person-circle"></i> {{ user.get_username }}
+        <span class="badge text-bg-{% if is_ewce_admin %}danger{% else %}secondary{% endif %}">{% if is_ewce_admin %}Admin{% elif is_ewce_operator %}Operator{% else %}No role{% endif %}</span>
+      </span>
+      {% if user.is_superuser %}<a class="btn btn-sm btn-outline-secondary me-2" href="{% url 'admin:index' %}">Django admin</a>{% endif %}
+      <form method="post" action="{% url 'logout' %}" class="d-inline">{% csrf_token %}<button class="btn btn-sm btn-outline-secondary">Log out</button></form>
+    </div>
+    {% endif %}
+  </div>
+</nav>
+<main class="container-fluid px-4 pb-5">
+  {% for message in messages %}
+    <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags|default:'info' }}{% endif %} alert-dismissible fade show" role="alert">
+      {{ message }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+  {% endfor %}
+  {% block content %}{% endblock %}
+</main>
+<script src="{% static 'vendor/bootstrap/bootstrap.bundle.min.js' %}"></script>
+<script>window.EWCE = {validateUrl: "{% url 'ui:validate_pattern' %}", csrf: "{{ csrf_token }}"};</script>
+<script src="{% static 'ewce/app.js' %}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Sources{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h4 mb-0">Sources <small class="text-secondary fs-6">organizations that publish information</small></h1>
+  {% if is_ewce_admin %}<a class="btn btn-primary btn-sm" href="{% url 'ui:source_create' %}"><i class="bi bi-plus-lg"></i> New source</a>{% endif %}
+</div>
+<div class="card"><div class="table-responsive"><table class="table table-hover mb-0 table-config">
+  <thead><tr><th>Name</th><th>Code</th><th>Website</th><th>Language</th><th>Feeds</th><th>Status</th><th></th></tr></thead>
+  <tbody>
+  {% for source in sources %}
+    <tr>
+      <td><span class="color-dot" style="background:{{ source.color }}"></span> <a href="{{ source.get_absolute_url }}">{{ source.name }}</a>
+        {% if source.is_example %}<span class="badge text-bg-light border">example</span>{% endif %}</td>
+      <td><code>{{ source.code }}</code></td>
+      <td class="small">{% if source.base_url %}<a href="{{ source.base_url }}" target="_blank" rel="noopener">{{ source.base_url }}</a>{% endif %}</td>
+      <td>{{ source.get_default_language_display }}</td>
+      <td>{{ source.active_feeds }} / {{ source.feed_count }}</td>
+      <td>{% if source.is_active %}<span class="badge text-bg-success">active</span>{% else %}<span class="badge text-bg-light">inactive</span>{% endif %}</td>
+      <td class="text-end">{% if is_ewce_admin %}<a class="btn btn-sm btn-outline-secondary" href="{% url 'ui:source_edit' source.pk %}">Edit</a>{% endif %}</td>
+    </tr>
+  {% empty %}<tr><td colspan="7" class="text-secondary">No sources yet.</td></tr>
+  {% endfor %}
+  </tbody>
+</table></div></div>
+{% endblock %}

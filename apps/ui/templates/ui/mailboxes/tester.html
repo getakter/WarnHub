@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% load ewce %}
+{% block title %}Rule tester · {{ mailbox.label }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h4 mb-0">Routing rule tester: {{ mailbox.label }}</h1>
+  <a class="btn btn-sm btn-outline-secondary" href="{{ mailbox.get_absolute_url }}"><i class="bi bi-arrow-left"></i> Mailbox</a>
+</div>
+<form method="post" enctype="multipart/form-data" class="card card-body mb-3">{% csrf_token %}
+  <div class="row g-3">
+    <div class="col-lg-4"><label class="form-label small" for="t-eml">An .eml file (in Outlook/Gmail: save or "show original")</label><input id="t-eml" type="file" name="eml" class="form-control" accept=".eml,message/rfc822"></div>
+    <div class="col-lg-4"><label class="form-label small" for="t-src">…or paste the full email source</label><textarea id="t-src" name="source" rows="3" class="form-control font-monospace small"></textarea></div>
+    <div class="col-lg-4"><label class="form-label small" for="t-seen">…or a recently collected email</label>
+      <select id="t-seen" name="seen" class="form-select"><option value="">—</option>{% for s in recent %}<option value="{{ s.pk }}">{{ s.processed_at|date:"d M H:i" }} · {{ s.subject|truncatechars:60 }}</option>{% endfor %}</select></div>
+  </div>
+  <div class="d-flex gap-3 align-items-center mt-3">
+    <button class="btn btn-primary"><i class="bi bi-signpost-split"></i> Test</button>
+    <div class="form-check"><input class="form-check-input" type="checkbox" name="dry_run" id="t-dry" checked><label class="form-check-label small" for="t-dry">Also show the messages it would create (dry run, nothing saved)</label></div>
+  </div>
+</form>
+{% if info %}
+<div class="card mb-3"><div class="card-body small">
+  <div><strong>From</strong> {{ info.from_address }} · <strong>To</strong> {{ info.to_addresses|join:", " }} · <strong>Date</strong> {{ info.date|default:"—" }}</div>
+  <div class="bn"><strong>Subject</strong> {{ info.subject }}</div>
+  <div><strong>Attachments</strong> {% for a in info.attachments %}<span class="badge text-bg-light border">{{ a.file_type }}</span> {{ a.filename|default:a.content_type }}{% if a.inline %} (inline){% endif %}; {% empty %}none{% endfor %}</div>
+</div></div>
+<div class="card mb-3"><div class="card-header fw-semibold">Every rule's verdict</div>
+  <table class="table table-sm small mb-0"><thead><tr><th>Rule</th><th>Result</th><th>Conditions</th></tr></thead><tbody>
+  {% for v in verdicts %}<tr><td>{{ v.rule.name }}{% if not v.rule.enabled %} <span class="badge text-bg-light">disabled</span>{% endif %}<div class="text-secondary">→ {{ v.rule.target_feed }}</div></td>
+    <td>{% if v.matched %}<span class="badge text-bg-success">matches</span>{% else %}<span class="badge text-bg-secondary">no</span>{% endif %}</td>
+    <td class="bn">{% for name, ok, detail in v.checks %}<div>{% if ok %}<i class="bi bi-check-circle text-success"></i>{% else %}<i class="bi bi-x-circle text-danger"></i>{% endif %} <strong>{{ name }}</strong>: {{ detail }}</div>{% endfor %}</td></tr>
+  {% empty %}<tr><td colspan="3" class="text-secondary">This mailbox has no rules.</td></tr>{% endfor %}</tbody></table></div>
+<div class="card mb-3"><div class="card-header fw-semibold">Outcome</div><div class="card-body small">
+  {% for plan in plans %}<div class="mb-2"><span class="badge text-bg-success">{{ plan.rule.name }}</span> delivers {{ plan.rule.get_take_display|lower }} ({{ plan.rule.get_split_display|lower }}) to <strong>{{ plan.rule.target_feed }}</strong>
+    {% if plan.chosen %}<div>Attachments taken: {% for a in plan.chosen %}{{ a.filename }}; {% endfor %}</div>{% endif %}
+    {% for a, reason in plan.skipped %}<div class="text-secondary">Skipped {{ a.filename|default:a.content_type }}: {{ reason }}</div>{% endfor %}</div>
+  {% empty %}<span class="badge text-bg-dark">unrouted</span> No rule matches: it would be saved as an unrouted message for review.{% endfor %}
+</div></div>
+{% if results %}<div class="card"><div class="card-header fw-semibold">Messages it would create</div>{% include "ui/tools/_result_items.html" %}</div>{% endif %}
+{% endif %}
+{% endblock %}

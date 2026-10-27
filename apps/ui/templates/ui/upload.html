@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Upload / paste{% endblock %}
+{% block content %}
+<h1 class="h4">Manual upload / paste</h1>
+<p class="text-secondary small">Files and text go through the same pipeline as collected items: archived untouched, parsed with the feed's rules,
+  checked for duplicates and keywords. Nothing you upload is silently dropped.</p>
+<form method="post" enctype="multipart/form-data" class="card card-body" style="max-width:960px">{% csrf_token %}
+  {% for error in form.non_field_errors %}<div class="alert alert-danger">{{ error }}</div>{% endfor %}
+  <div class="row">
+    {% include "ui/_field.html" with field=form.feed wrapper_class="col-md-6" %}
+    {% include "ui/_field.html" with field=form.language wrapper_class="col-md-6" %}
+    {% include "ui/_field.html" with field=form.files wrapper_class="col-12" %}
+    {% include "ui/_field.html" with field=form.text wrapper_class="col-12" %}
+    {% include "ui/_field.html" with field=form.title wrapper_class="col-md-6" %}
+    {% include "ui/_field.html" with field=form.url wrapper_class="col-md-6" %}
+    {% include "ui/_field.html" with field=form.published_at wrapper_class="col-md-6" %}
+  </div>
+  <div><button class="btn btn-primary"><i class="bi bi-upload"></i> Process</button></div>
+</form>
+{% endblock %}

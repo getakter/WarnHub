@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% load ewce %}
+{% block title %}{{ source.name }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-3">
+  <div>
+    <h1 class="h4 mb-1"><span class="color-dot" style="background:{{ source.color }}"></span> {{ source.name }} <code class="fs-6">{{ source.code }}</code>
+      {% if source.is_example %}<span class="badge text-bg-light border">example</span>{% endif %}
+      {% if not source.is_active %}<span class="badge text-bg-secondary">inactive</span>{% endif %}</h1>
+    {% if source.base_url %}<a href="{{ source.base_url }}" target="_blank" rel="noopener" class="small">{{ source.base_url }}</a>{% endif %}
+  </div>
+  {% if is_ewce_admin %}
+  <div class="btn-group btn-group-sm">
+    <a class="btn btn-outline-primary" href="{% url 'ui:source_edit' source.pk %}"><i class="bi bi-pencil"></i> Edit</a>
+    <form method="post" action="{% url 'ui:source_clone' source.pk %}">{% csrf_token %}<button class="btn btn-outline-secondary btn-sm rounded-0"><i class="bi bi-copy"></i> Clone</button></form>
+    <form method="post" action="{% url 'ui:toggle_active' 'source' source.pk %}">{% csrf_token %}<button class="btn btn-outline-secondary btn-sm rounded-0">{% if source.is_active %}Disable{% else %}Enable{% endif %}</button></form>
+    <a class="btn btn-outline-secondary" href="{% url 'ui:versions' 'sources.source' source.pk %}"><i class="bi bi-clock-history"></i> History</a>
+    <a class="btn btn-outline-secondary" href="{% url 'ui:export_object' 'source' source.pk %}" title="Export this source and its feeds as JSON"><i class="bi bi-download"></i> Export</a>
+    <a class="btn btn-outline-danger" href="{% url 'ui:source_delete' source.pk %}"><i class="bi bi-trash"></i></a>
+  </div>
+  {% endif %}
+</div>
+<div class="row g-4">
+  <div class="col-lg-5">
+    <div class="card mb-3"><div class="card-body small">
+      {% if source.description %}<p>{{ source.description|linebreaksbr }}</p>{% endif %}
+      <dl class="row mb-0">
+        <dt class="col-5">Default language</dt><dd class="col-7">{{ source.get_default_language_display }}</dd>
+        <dt class="col-5">Timezone</dt><dd class="col-7">{{ source.default_timezone }}</dd>
+        <dt class="col-5">Contact</dt><dd class="col-7">{{ source.contact_person|default:"—" }}</dd>
+        <dt class="col-5">Permission / terms</dt><dd class="col-7">{{ source.permission_notes|default:"—"|linebreaksbr }}</dd>
+      </dl>
+    </div></div>
+    <div class="card"><div class="card-header fw-semibold">Settings this source provides to its feeds</div>
+      <table class="table table-sm mb-0 small">{% for path, value, layer, code in settings_rows %}<tr><td><code>{{ path }}</code></td><td>{{ value|short_value }}</td></tr>
+      {% empty %}<tr><td class="text-secondary">Nothing: feeds use profile or built-in defaults.</td></tr>{% endfor %}</table>
+    </div>
+  </div>
+  <div class="col-lg-7">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center"><span class="fw-semibold">Feeds</span>
+        {% if is_ewce_admin %}<a class="btn btn-sm btn-primary" href="{% url 'ui:feed_create' %}?source={{ source.pk }}"><i class="bi bi-plus-lg"></i> New feed</a>{% endif %}</div>
+      <ul class="list-group list-group-flush">
+        {% for feed in feeds %}
+          <li class="list-group-item d-flex justify-content-between align-items-center">
+            <div><a href="{{ feed.get_absolute_url }}">{{ feed.name }}</a> <span class="small text-secondary">{{ feed.method }}{% if feed.profile %} · {{ feed.profile }}{% endif %}</span></div>
+            <div>{{ feed.health_status|status_badge:feed.get_health_status_display }} {% if feed.is_active %}<span class="badge text-bg-success">enabled</span>{% else %}<span class="badge text-bg-light">disabled</span>{% endif %}</div>
+          </li>
+        {% empty %}<li class="list-group-item text-secondary">No feeds yet.</li>{% endfor %}
+      </ul>
+    </div>
+  </div>
+</div>
+{% endblock %}

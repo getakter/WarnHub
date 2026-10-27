@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% load ewce humanize %}
+{% block title %}Messages{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h4 mb-0">Collected messages <small class="text-secondary fs-6">{{ total|intcomma }} found</small></h1>
+  <div class="d-flex gap-2">
+    <a class="btn btn-sm btn-outline-secondary" href="{% url 'ui:message_export_csv' %}?{{ query }}"><i class="bi bi-filetype-csv"></i> Export CSV</a>
+    <a class="btn btn-sm btn-primary" href="{% url 'ui:upload' %}"><i class="bi bi-upload"></i> Upload / paste</a>
+  </div>
+</div>
+<form method="get" class="card card-body mb-3 py-2">
+  <div class="row g-2 align-items-end">
+    <div class="col-md-3"><label class="form-label small mb-0" for="{{ form.q.id_for_label }}">Search (title, text, fields)</label>{{ form.q }}</div>
+    <div class="col-md-2"><label class="form-label small mb-0">Source</label>{{ form.source }}</div>
+    <div class="col-md-3"><label class="form-label small mb-0">Feed</label>{{ form.feed }}</div>
+    <div class="col-md-2"><label class="form-label small mb-0">Language</label>{{ form.language }}</div>
+    <div class="col-md-2"><label class="form-label small mb-0">Quality flag</label>{{ form.flag }}</div>
+    <div class="col-md-2"><label class="form-label small mb-0">Status (ctrl-click for several)</label>{{ form.status }}</div>
+    <div class="col-md-1"><label class="form-label small mb-0">Date</label>{{ form.date_field }}</div>
+    <div class="col-md-2"><label class="form-label small mb-0">From</label>{{ form.date_from }}</div>
+    <div class="col-md-2"><label class="form-label small mb-0">To</label>{{ form.date_to }}</div>
+    <div class="col-md-2"><label class="form-label small mb-0">Matched keyword</label>{{ form.keyword }}</div>
+    <div class="col-md-1"><label class="form-label small mb-0">Extra field</label>{{ form.field_name }}</div>
+    <div class="col-md-2"><label class="form-label small mb-0">…contains</label>{{ form.field_value }}</div>
+    <div class="col-md-2"><label class="form-label small mb-0">Entry</label>{{ form.manual }}</div>
+    <div class="col-md-2"><div class="form-check">{{ form.latest_only }} <label class="form-check-label small" for="{{ form.latest_only.id_for_label }}">Latest versions only</label></div></div>
+    {{ form.run }}
+    <div class="col-md-2 d-flex gap-1"><button class="btn btn-sm btn-primary"><i class="bi bi-funnel"></i> Filter</button><a class="btn btn-sm btn-outline-secondary" href="{% url 'ui:message_list' %}">Reset</a></div>
+  </div>
+  {% if form.errors %}<div class="text-danger small mt-1">{{ form.errors }}</div>{% endif %}
+</form>
+<div class="card"><div class="table-responsive"><table class="table table-sm table-hover mb-0 align-middle">
+  <thead><tr><th>Collected</th><th>Feed</th><th>Title</th><th>Status</th><th>Lang</th><th>Keywords</th><th>Flags</th><th>v</th></tr></thead>
+  <tbody>
+  {% for m in page %}
+    <tr>
+      <td class="small text-nowrap" title="{{ m.collected_at }}">{{ m.collected_at|date:"d M H:i" }}{% if m.published_at %}<div class="text-secondary">pub {{ m.published_at|date:"d M H:i" }}</div>{% endif %}</td>
+      <td class="small">{% if m.source %}<span class="color-dot" style="background:{{ m.source.color }}"></span> {{ m.source.code }}{% endif %}<div class="text-secondary">{{ m.feed.name|default:m.mailbox|truncatechars:30 }}</div></td>
+      <td class="bn"><a href="{{ m.get_absolute_url }}">{{ m.title|default:"(no title)"|truncatechars:110 }}</a>{% if m.manual_entry %} <span class="badge text-bg-light border">manual</span>{% endif %}</td>
+      <td>{{ m.status|status_badge:m.get_status_display }}</td>
+      <td class="small">{{ m.detected_language }}</td>
+      <td class="small bn">{% for k in m.matched_keywords|slice:":4" %}<span class="badge text-bg-primary-subtle text-primary-emphasis">{{ k.term }}</span> {% endfor %}</td>
+      <td class="small">{% for f in m.quality_flags %}<span class="badge text-bg-warning-subtle text-warning-emphasis">{{ f }}</span> {% endfor %}</td>
+      <td class="small">{{ m.version }}{% if not m.is_latest %}<i class="bi bi-clock-history text-secondary" title="superseded"></i>{% endif %}</td>
+    </tr>
+  {% empty %}<tr><td colspan="8" class="text-secondary p-3">No messages match. Upload or paste something, or run a feed (M3).</td></tr>
+  {% endfor %}
+  </tbody>
+</table></div></div>
+{% if page.paginator.num_pages > 1 %}
+<nav class="mt-3"><ul class="pagination pagination-sm">
+  {% if page.has_previous %}<li class="page-item"><a class="page-link" href="?{{ query }}&page={{ page.previous_page_number }}">‹ Prev</a></li>{% endif %}
+  <li class="page-item disabled"><span class="page-link">Page {{ page.number }} of {{ page.paginator.num_pages }}</span></li>
+  {% if page.has_next %}<li class="page-item"><a class="page-link" href="?{{ query }}&page={{ page.next_page_number }}">Next ›</a></li>{% endif %}
+</ul></nav>
+{% endif %}
+{% endblock %}

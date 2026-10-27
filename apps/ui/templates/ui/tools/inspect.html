@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% load ewce %}
+{% block title %}Inspect URL{% endblock %}
+{% block content %}
+<h1 class="h4">Inspect URL</h1>
+<form method="get" class="card card-body mb-3">
+  <div class="row g-2 align-items-end">
+    <div class="col-lg-6"><label class="form-label small mb-0" for="i-url">URL</label><input id="i-url" name="url" class="form-control" value="{{ url }}" placeholder="https://www.ffwc.gov.bd/…" required></div>
+    <div class="col-lg-3"><label class="form-label small mb-0" for="i-feed">Use fetch settings & URL scope of feed</label>
+      <select id="i-feed" name="feed" class="form-select"><option value="">— defaults —</option>{% for f in feeds %}<option value="{{ f.pk }}" {% if feed and f.pk == feed.pk %}selected{% endif %}>{{ f }}</option>{% endfor %}</select></div>
+    <div class="col-lg-1"><div class="form-check"><input class="form-check-input" type="checkbox" name="js" id="i-js" {% if use_js %}checked{% endif %}><label class="form-check-label small" for="i-js">Render JS</label></div></div>
+    <div class="col-lg-2"><button class="btn btn-primary w-100"><i class="bi bi-search"></i> Inspect</button></div>
+  </div>
+</form>
+{% if error %}<div class="alert alert-danger">{{ error }}</div>{% endif %}
+{% for level, message in events %}<div class="alert alert-warning small py-1">{{ message }}</div>{% endfor %}
+{% if result %}
+<div class="row g-3">
+  <div class="col-xl-4">
+    <div class="card mb-3"><div class="card-header fw-semibold">Response</div>
+      <table class="table table-sm small mb-0">
+        <tr><th>Final URL</th><td class="text-break-all"><a href="{{ result.url }}" target="_blank" rel="noopener">{{ result.url }}</a></td></tr>
+        <tr><th>Status</th><td>{{ result.status }}{% if result.rendered_js %} (rendered with JavaScript){% endif %}</td></tr>
+        <tr><th>Content type</th><td>{{ result.content_type|default:"—" }} → detected <strong>{{ file_type }}</strong></td></tr>
+        <tr><th>Size</th><td>{{ result.content|length|filesizeformat }}</td></tr>
+        <tr><th>Title</th><td class="bn">{{ document.title|default:"—" }}</td></tr>
+        <tr><th>Encoding</th><td>{{ document.encoding|default:"—" }}</td></tr>
+        {% if document.font_names %}<tr><th>Fonts</th><td>{{ document.font_names|join:", "|truncatechars:200 }}</td></tr>{% endif %}
+        {% if document.quality_flags %}<tr><th>Flags</th><td>{% for f in document.quality_flags %}<span class="badge text-bg-warning">{{ f }}</span> {% endfor %}</td></tr>{% endif %}
+      </table>
+      <details class="card-footer small"><summary>Response headers</summary>{% for k, v in headers %}<div><code>{{ k }}</code>: {{ v|truncatechars:120 }}</div>{% endfor %}</details>
+      {% if parse_error %}<div class="card-footer text-danger small">Parse error: {{ parse_error }}</div>{% endif %}
+    </div>
+    {% if suggestions %}
+    <div class="card mb-3"><div class="card-header fw-semibold">Repeating items (listing selector suggestions)</div>
+      <ul class="list-group list-group-flush small">{% for s in suggestions %}<li class="list-group-item d-flex justify-content-between"><a href="#" class="use-selector font-monospace" data-selector="{{ s.selector }}">{{ s.selector }}</a><span class="badge text-bg-secondary">{{ s.count }}</span></li>{% endfor %}</ul></div>
+    {% endif %}
+    <div class="card"><div class="card-header fw-semibold">Links <span class="small text-secondary">{{ link_count }} total, {{ document_links }} documents{% if feed %}; scope from {{ feed }}{% endif %}</span></div>
+      <div style="max-height:420px;overflow:auto"><table class="table table-sm small mb-0">
+        {% for link in links %}<tr class="{% if link.is_document %}table-info{% endif %}">
+          <td><span class="badge text-bg-{% if link.is_document %}primary{% else %}light border{% endif %}">{{ link.type }}</span></td>
+          <td class="bn text-break-all"><a href="{{ link.url }}" target="_blank" rel="noopener">{{ link.text|default:link.url|truncatechars:70 }}</a>
+            <div class="text-secondary">{{ link.url|truncatechars:80 }}</div></td>
+          <td>{% if link.in_scope is True %}<span class="text-success" title="in this feed's URL scope"><i class="bi bi-check-circle"></i></span>{% elif link.in_scope is False %}<span class="text-secondary" title="{{ link.reason }}"><i class="bi bi-x-circle"></i></span>{% endif %}</td>
+          <td><a class="small" href="?url={{ link.url|urlencode }}{% if feed %}&feed={{ feed.pk }}{% endif %}" title="Inspect this link"><i class="bi bi-search"></i></a></td></tr>
+        {% empty %}<tr><td class="text-secondary">No links.</td></tr>{% endfor %}
+      </table></div></div>
+  </div>
+
+  <div class="col-xl-8">
+    <div class="card mb-3"><div class="card-header fw-semibold">Selector playground</div><div class="card-body">
+      <div class="input-group">
+        <select id="pg-kind" class="form-select" style="max-width:9rem"><option value="css">CSS</option><option value="xpath">XPath</option><option value="regex">Regex (on text)</option></select>
+        <input id="pg-expr" class="form-control font-monospace" placeholder="e.g. table tbody tr   or   //div[@id='content']   or   Signal\s+No\.?\s*(\d+)">
+        <button id="pg-run" class="btn btn-primary" type="button">Test</button>
+      </div>
+      <div class="form-text">{% if preview %}Tip: click any element in the page below to get a suggested selector.{% else %}Not an HTML page: use a regex on the extracted text.{% endif %}</div>
+      <div id="pg-suggest" class="small mt-2"></div>
+      <div id="pg-summary" class="small mt-2"></div>
+      <div id="pg-matches" class="small mt-2" style="max-height:220px;overflow:auto"></div>
+    </div></div>
+    {% if preview %}
+    <div class="card mb-3"><div class="card-header fw-semibold">Page (scripts removed; matches highlighted in red)</div>
+      <iframe id="pg-frame" class="w-100 border-0" style="height:560px" sandbox="allow-same-origin" srcdoc="{{ preview }}" title="Page preview"></iframe></div>
+    {% endif %}
+    <div class="card"><div class="card-header fw-semibold">Extracted text <span class="small text-secondary">{{ text_length }} characters{% if text_length > text_preview|length %}, first {{ text_preview|length }} shown{% endif %}</span></div>
+      <div id="pg-text" class="card-body bn small" style="white-space:pre-wrap;max-height:420px;overflow:auto">{{ text_preview|default:"(no text)" }}</div></div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}{% if result %}
+<script>
+(function () {
+  var token = "{{ token }}";
+  var kind = document.getElementById("pg-kind"), expr = document.getElementById("pg-expr");
+  var summary = document.getElementById("pg-summary"), list = document.getElementById("pg-matches");
+  var frame = document.getElementById("pg-frame"), textBox = document.getElementById("pg-text");
+  var originalText = textBox.innerHTML;
+
+  function esc(s) { var d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
+
+  function run() {
+    var body = new FormData();
+    body.append("token", token); body.append("kind", kind.value); body.append("expression", expr.value);
+    summary.textContent = "Testing…";
+    fetch("{% url 'ui:playground' %}", {method: "POST", body: body, headers: {"X-CSRFToken": window.EWCE.csrf}})
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.error) { summary.innerHTML = '<span class="text-danger">' + esc(data.error) + "</span>"; list.innerHTML = ""; return; }
+        summary.innerHTML = "<strong>" + data.count + "</strong> match" + (data.count === 1 ? "" : "es");
+        list.innerHTML = data.matches.map(function (m, i) {
+          var groups = m.groups ? Object.keys(m.groups).map(function (k) { return "<code>" + esc(k) + "</code>=" + esc(String(m.groups[k])); }).join(" ") : "";
+          return '<div class="border-bottom py-1 bn"><span class="text-secondary">' + (i + 1) + ".</span> " + esc(m.text || "(empty)") + (groups ? "<div>" + groups + "</div>" : "") + "</div>";
+        }).join("");
+        if (kind.value === "regex") { textBox.innerHTML = data.highlighted; }
+        else { textBox.innerHTML = originalText; if (frame && data.preview) { frame.srcdoc = data.preview; } }
+      });
+  }
+  document.getElementById("pg-run").addEventListener("click", run);
+  expr.addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); run(); } });
+  document.querySelectorAll(".use-selector").forEach(function (a) {
+    a.addEventListener("click", function (e) { e.preventDefault(); kind.value = "css"; expr.value = a.dataset.selector; run(); });
+  });
+
+  // Click-to-suggest: the preview has no scripts of its own; we attach listeners from this page.
+  function cssPath(el) {
+    var parts = [];
+    while (el && el.nodeType === 1 && el.tagName.toLowerCase() !== "body" && parts.length < 4) {
+      var part = el.tagName.toLowerCase();
+      if (el.id && !/\d{3,}/.test(el.id)) { parts.unshift(part + "#" + CSS.escape(el.id)); break; }
+      var classes = Array.prototype.filter.call(el.classList, function (c) { return c !== "ewce-hit" && c !== "ewce-hover" && !/\d{3,}/.test(c); }).slice(0, 2);
+      if (classes.length) part += "." + classes.map(CSS.escape).join(".");
+      parts.unshift(part);
+      el = el.parentElement;
+    }
+    return parts.join(" > ");
+  }
+  function nthPath(el) {
+    var parts = [];
+    while (el && el.nodeType === 1 && el.tagName.toLowerCase() !== "body" && parts.length < 6) {
+      var part = el.tagName.toLowerCase(), idx = 1, sib = el;
+      while ((sib = sib.previousElementSibling)) { if (sib.tagName === el.tagName) idx++; }
+      parts.unshift(part + ":nth-of-type(" + idx + ")");
+      el = el.parentElement;
+    }
+    return parts.join(" > ");
+  }
+  function attach() {
+    var doc = frame && frame.contentDocument;
+    if (!doc || doc.__ewce) return;
+    doc.__ewce = true;
+    doc.addEventListener("mouseover", function (e) { e.target.classList.add("ewce-hover"); });
+    doc.addEventListener("mouseout", function (e) { e.target.classList.remove("ewce-hover"); });
+    doc.addEventListener("click", function (e) {
+      e.preventDefault(); e.stopPropagation();
+      var general = cssPath(e.target), exact = nthPath(e.target);
+      var count = doc.querySelectorAll(general).length;
+      document.getElementById("pg-suggest").innerHTML = "Suggested: " +
+        '<a href="#" class="font-monospace sugg" data-s="' + esc(general) + '">' + esc(general) + "</a> (" + count + " on page) · exact: " +
+        '<a href="#" class="font-monospace sugg" data-s="' + esc(exact) + '">' + esc(exact) + "</a>";
+      document.querySelectorAll(".sugg").forEach(function (a) {
+        a.addEventListener("click", function (ev) { ev.preventDefault(); kind.value = "css"; expr.value = a.dataset.s; run(); });
+      });
+      kind.value = "css"; expr.value = general; run();
+    }, true);
+  }
+  if (frame) { frame.addEventListener("load", function () { attach(); }); attach(); }
+})();
+</script>
+{% endif %}{% endblock %}

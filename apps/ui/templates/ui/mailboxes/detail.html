@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% load ewce humanize %}
+{% block title %}{{ mailbox.label }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2">
+  <div>
+    <h1 class="h4 mb-1"><i class="bi bi-envelope"></i> {{ mailbox.label }}
+      {% if mailbox.is_active %}<span class="badge text-bg-success">active</span>{% else %}<span class="badge text-bg-secondary">disabled</span>{% endif %}
+      {% if mailbox.is_example %}<span class="badge text-bg-light border">example</span>{% endif %}</h1>
+    <div class="small text-secondary">{{ mailbox.protocol|upper }} {{ mailbox.host }}:{{ mailbox.port }} ({{ mailbox.get_security_display }}) · {{ mailbox.username }} ·
+      password from <code>{{ mailbox.password_env_var }}</code> · folders {{ mailbox.watched_folders|join:", " }} · every {{ mailbox.poll_interval_minutes }} min</div>
+  </div>
+  <div class="d-flex gap-1 flex-wrap">
+    <a class="btn btn-sm btn-outline-primary" href="{% url 'ui:mailbox_preview' mailbox.pk %}"><i class="bi bi-inbox"></i> Inbox preview</a>
+    <a class="btn btn-sm btn-outline-primary" href="{% url 'ui:mailbox_tester' mailbox.pk %}"><i class="bi bi-signpost-split"></i> Rule tester</a>
+    <form method="post" action="{% url 'ui:mailbox_poll' mailbox.pk %}">{% csrf_token %}<button class="btn btn-sm btn-success" data-confirm="Fetch and process new emails now?"><i class="bi bi-download"></i> Poll now</button></form>
+    {% if is_ewce_admin %}
+    <form method="post" action="{% url 'ui:mailbox_test' mailbox.pk %}">{% csrf_token %}<button class="btn btn-sm btn-outline-success"><i class="bi bi-plug"></i> Test connection</button></form>
+    <a class="btn btn-sm btn-primary" href="{% url 'ui:mailbox_edit' mailbox.pk %}"><i class="bi bi-pencil"></i> Edit</a>
+    <form method="post" action="{% url 'ui:mailbox_toggle' mailbox.pk %}">{% csrf_token %}<button class="btn btn-sm btn-outline-secondary">{% if mailbox.is_active %}Disable{% else %}Enable{% endif %}</button></form>
+    <form method="post" action="{% url 'ui:mailbox_clone' mailbox.pk %}">{% csrf_token %}<button class="btn btn-sm btn-outline-secondary"><i class="bi bi-copy"></i> Clone</button></form>
+    <a class="btn btn-sm btn-outline-secondary" href="{% url 'ui:versions' 'mailbox.mailboxaccount' mailbox.pk %}"><i class="bi bi-clock-history"></i> History</a>
+    <a class="btn btn-sm btn-outline-secondary" href="{% url 'ui:export_object' 'mailbox' mailbox.pk %}"><i class="bi bi-download"></i> Export</a>
+    <a class="btn btn-sm btn-outline-danger" href="{% url 'ui:mailbox_delete' mailbox.pk %}"><i class="bi bi-trash"></i></a>
+    {% endif %}
+  </div>
+</div>
+{% if mailbox.last_error %}<div class="alert alert-danger small">Last poll failed: {{ mailbox.last_error }}</div>{% endif %}
+<div class="row g-3 mb-3 small">
+  <div class="col-md-3"><div class="card card-body py-2">Last poll<br><strong>{{ mailbox.last_polled_at|naturaltime|default:"never" }}</strong></div></div>
+  <div class="col-md-3"><div class="card card-body py-2">Next poll<br><strong>{% if mailbox.is_active %}{{ mailbox.next_poll_at|naturaltime|default:"when the worker next runs" }}{% else %}— (disabled){% endif %}</strong></div></div>
+  <div class="col-md-3"><div class="card card-body py-2">After collecting<br><strong>{{ mailbox.get_default_post_action_display }}{% if mailbox.default_post_target %} → {{ mailbox.default_post_target }}{% endif %}</strong>; unmatched: {{ mailbox.get_unmatched_post_action_display }}</div></div>
+  <div class="col-md-3"><a class="text-decoration-none" href="{% url 'ui:message_list' %}?status=unrouted"><div class="card card-body py-2 {% if unrouted %}border-warning{% endif %}">Unrouted emails<br><strong>{{ unrouted }}</strong></div></a></div>
+</div>
+
+<div class="card mb-3" id="rules">
+  <div class="card-header d-flex justify-content-between align-items-center"><span class="fw-semibold">Routing rules (checked top to bottom)</span>
+    {% if is_ewce_admin %}<a class="btn btn-sm btn-primary" href="{% url 'ui:mailbox_rule_create' mailbox.pk %}"><i class="bi bi-plus-lg"></i> Add rule</a>{% endif %}</div>
+  <div class="table-responsive"><table class="table table-sm mb-0 small align-middle">
+    <thead><tr><th>#</th><th>Rule</th><th>When</th><th>Deliver to</th><th>Take</th><th>After</th><th></th></tr></thead>
+    <tbody>{% for r in rules %}
+      <tr class="{% if not r.enabled %}text-secondary{% endif %}">
+        <td>{{ forloop.counter }}</td>
+        <td><a href="{% url 'ui:mailbox_rule_edit' mailbox.pk r.pk %}">{{ r.name }}</a>{% if not r.enabled %} <span class="badge text-bg-light">off</span>{% endif %}{% if not r.stop_processing %} <span class="badge text-bg-info text-dark" title="Later rules are also checked">continue</span>{% endif %}</td>
+        <td class="bn">{% if r.from_patterns %}<div>from {{ r.from_patterns|join:", " }}</div>{% endif %}{% if r.to_patterns %}<div>to {{ r.to_patterns|join:", " }}</div>{% endif %}
+          {% if r.subject_contains %}<div>subject has {{ r.subject_contains|join:" / " }}</div>{% endif %}{% if r.subject_regex %}<div>subject ~ <code>{{ r.subject_regex }}</code></div>{% endif %}
+          {% if r.body_keywords %}<div>body has {{ r.body_keywords|join:" / " }}</div>{% endif %}{% if r.has_attachment != "any" %}<div>{{ r.get_has_attachment_display }}</div>{% endif %}
+          {% if r.attachment_types %}<div>attachment types {{ r.attachment_types|join:", " }}</div>{% endif %}<span class="text-secondary">({{ r.get_match_mode_display }})</span></td>
+        <td><a href="{{ r.target_feed.get_absolute_url }}">{{ r.target_feed }}</a></td>
+        <td>{{ r.get_take_display }}<div class="text-secondary">{{ r.get_split_display }}</div></td>
+        <td>{{ r.get_post_action_display }}{% if r.post_target %} → {{ r.post_target }}{% endif %}</td>
+        <td class="text-end text-nowrap">{% if is_ewce_admin %}
+          <form method="post" action="{% url 'ui:mailbox_rule_action' mailbox.pk r.pk 'up' %}" class="d-inline">{% csrf_token %}<button class="btn btn-sm btn-link p-0"><i class="bi bi-arrow-up"></i></button></form>
+          <form method="post" action="{% url 'ui:mailbox_rule_action' mailbox.pk r.pk 'down' %}" class="d-inline">{% csrf_token %}<button class="btn btn-sm btn-link p-0"><i class="bi bi-arrow-down"></i></button></form>
+          <form method="post" action="{% url 'ui:mailbox_rule_action' mailbox.pk r.pk 'toggle' %}" class="d-inline">{% csrf_token %}<button class="btn btn-sm btn-link p-0">{% if r.enabled %}disable{% else %}enable{% endif %}</button></form>
+          <form method="post" action="{% url 'ui:mailbox_rule_action' mailbox.pk r.pk 'clone' %}" class="d-inline">{% csrf_token %}<button class="btn btn-sm btn-link p-0">clone</button></form>
+          <a class="btn btn-sm btn-link p-0" href="{% url 'ui:versions' 'mailbox.mailboxrule' r.pk %}">history</a>
+          <a class="btn btn-sm btn-link p-0 text-danger" href="{% url 'ui:mailbox_rule_delete' mailbox.pk r.pk %}">delete</a>{% endif %}</td>
+      </tr>
+    {% empty %}<tr><td colspan="7" class="text-secondary">No rules: every email is saved as unrouted.</td></tr>{% endfor %}</tbody>
+  </table></div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-8"><div class="card"><div class="card-header fw-semibold">Recently processed emails</div>
+    <div class="table-responsive"><table class="table table-sm mb-0 small">
+      <thead><tr><th>Processed</th><th>From / subject</th><th>Outcome</th><th>Rule</th><th>Original</th></tr></thead>
+      <tbody>{% for s in seen %}<tr><td class="text-nowrap">{{ s.processed_at|date:"d M H:i" }}</td>
+        <td class="bn">{{ s.from_address }}<div>{{ s.subject|truncatechars:80 }}</div></td>
+        <td>{{ s.outcome|status_badge }}{% if s.detail %}<div class="text-secondary">{{ s.detail }}</div>{% endif %}</td><td>{{ s.rule.name|default:"—" }}</td>
+        <td>{% if s.raw_artifact %}<a href="{% url 'ui:artifact_download' s.raw_artifact.pk %}?download=1">.eml</a>{% endif %}</td></tr>
+      {% empty %}<tr><td colspan="5" class="text-secondary">Nothing processed yet.</td></tr>{% endfor %}</tbody></table></div></div></div>
+  <div class="col-lg-4">
+    <div class="card mb-3"><div class="card-header fw-semibold">Polls</div><ul class="list-group list-group-flush small">
+      {% for run in runs %}<li class="list-group-item d-flex justify-content-between"><a href="{{ run.get_absolute_url }}">#{{ run.pk }} {{ run.started_at|naturaltime }}</a><span>{{ run.get_trigger_display }} {{ run.status|status_badge }}</span></li>
+      {% empty %}<li class="list-group-item text-secondary">Never polled.</li>{% endfor %}</ul></div>
+    <div class="card"><div class="card-header fw-semibold">Config changes</div><ul class="list-group list-group-flush small">
+      {% for v in versions %}<li class="list-group-item">v{{ v.version }} · {{ v.get_change_type_display }} · {{ v.created_at|naturaltime }}</li>{% endfor %}</ul></div>
+  </div>
+</div>
+{% endblock %}

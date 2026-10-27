@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Delete {{ object }}{% endblock %}
+{% block content %}
+<div class="card border-danger" style="max-width:640px">
+  <div class="card-body">
+    <h1 class="h5">Delete {{ object }}?</h1>
+    {% if warning %}<p class="text-secondary">{{ warning }}</p>{% endif %}
+    <p class="small">The last configuration is kept in version history. Collected messages are never deleted.</p>
+    <form method="post">{% csrf_token %}
+      <button class="btn btn-danger"><i class="bi bi-trash"></i> Delete</button>
+      <a href="{{ back_url }}" class="btn btn-outline-secondary">Cancel</a>
+    </form>
+  </div>
+</div>
+{% endblock %}

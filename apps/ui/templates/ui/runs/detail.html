@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% load ewce %}
+{% block title %}Run #{{ run.pk }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-3">
+  <div><h1 class="h4 mb-1">Run #{{ run.pk }} {{ run.status|status_badge:run.get_status_display }}</h1>
+    <div class="small text-secondary">{{ run.get_trigger_display }}{% if run.triggered_by %} by {{ run.triggered_by }}{% endif %} ·
+      {% if run.feed %}<a href="{{ run.feed.get_absolute_url }}">{{ run.feed }}</a>{% elif run.mailbox %}{{ run.mailbox }}{% endif %} ·
+      started {{ run.started_at }}{% if run.duration %} · {{ run.duration.total_seconds|floatformat:1 }} s{% endif %}</div></div>
+  <a class="btn btn-sm btn-outline-secondary" href="{% url 'ui:run_list' %}"><i class="bi bi-arrow-left"></i> Runs</a>
+</div>
+{% if run.error_message %}<div class="alert alert-danger small" style="white-space:pre-wrap">{{ run.error_message }}</div>{% endif %}
+<div class="row g-3">
+  <div class="col-lg-4">
+    <div class="card mb-3"><div class="card-header fw-semibold">Counts</div>
+      <table class="table table-sm mb-0 small">{% for k, v in stats %}<tr><td>{{ k }}</td><td class="text-end">{{ v }}</td></tr>{% empty %}<tr><td class="text-secondary">No counts.</td></tr>{% endfor %}</table></div>
+    <div class="card"><div class="card-header fw-semibold d-flex justify-content-between">Messages saved <a class="small" href="{% url 'ui:message_list' %}?run={{ run.pk }}">{{ message_count }} in list</a></div>
+      <ul class="list-group list-group-flush small">{% for m in messages_created %}<li class="list-group-item d-flex justify-content-between gap-2"><a class="bn" href="{{ m.get_absolute_url }}">{{ m.title|default:"(no title)"|truncatechars:60 }}</a>{{ m.status|status_badge }}</li>
+      {% empty %}<li class="list-group-item text-secondary">None (unchanged items only bump their "seen" count).</li>{% endfor %}</ul></div>
+  </div>
+  <div class="col-lg-8">
+    <div class="card"><div class="card-header d-flex justify-content-between align-items-center"><span class="fw-semibold">Log</span>
+      <span class="small"><a href="?">all</a> · <a href="?level=error">errors</a> · <a href="?level=warning">warnings</a></span></div>
+      <div class="table-responsive"><table class="table table-sm mb-0 small">
+        {% for e in events %}<tr class="{% if e.level == 'error' %}table-danger{% elif e.level == 'warning' %}table-warning{% endif %}">
+          <td class="text-nowrap text-secondary">{{ e.created_at|date:"H:i:s" }}</td><td>{{ e.level }}</td>
+          <td class="bn" style="white-space:pre-wrap">{{ e.message }}{% if e.context.traceback %}<details><summary>traceback</summary><pre>{{ e.context.traceback }}</pre></details>{% endif %}</td></tr>
+        {% empty %}<tr><td class="text-secondary">No log entries.</td></tr>{% endfor %}
+      </table></div></div>
+  </div>
+</div>
+{% endblock %}

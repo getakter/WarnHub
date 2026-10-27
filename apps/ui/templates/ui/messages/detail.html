@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% load ewce humanize %}
+{% block title %}{{ message.title|truncatechars:60 }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-2 flex-wrap gap-2">
+  <div>
+    <div class="small">{% if message.source %}<a href="{{ message.source.get_absolute_url }}"><span class="color-dot" style="background:{{ message.source.color }}"></span> {{ message.source.name }}</a> ›{% endif %}
+      {% if message.feed %}<a href="{{ message.feed.get_absolute_url }}">{{ message.feed.name }}</a>{% elif message.mailbox %}mailbox {{ message.mailbox }}{% endif %}</div>
+    <h1 class="h4 bn mb-1">{{ message.title|default:"(no title)" }}</h1>
+    <div>{{ message.status|status_badge:message.get_status_display }}
+      <span class="badge text-bg-light border">v{{ message.version }}{% if not message.is_latest %} · superseded{% endif %}</span>
+      {% if message.manual_entry %}<span class="badge text-bg-light border">manual entry by {{ message.created_by|default:"?" }}</span>{% endif %}
+      {% for f in message.quality_flags %}<span class="badge text-bg-warning">{{ f }}</span> {% endfor %}</div>
+  </div>
+  <div class="d-flex gap-2">
+    {% if message.status == "needs_attention" %}
+      <form method="post" action="{% url 'ui:message_clear_attention' message.pk %}">{% csrf_token %}<button class="btn btn-sm btn-outline-success"><i class="bi bi-check2"></i> Clear attention</button></form>
+    {% else %}
+      <button class="btn btn-sm btn-outline-warning" data-bs-toggle="collapse" data-bs-target="#attention"><i class="bi bi-flag"></i> Mark needs attention</button>
+    {% endif %}
+    <a class="btn btn-sm btn-outline-secondary" href="{% url 'ui:message_list' %}"><i class="bi bi-arrow-left"></i> Messages</a>
+  </div>
+</div>
+<div id="attention" class="collapse mb-3"><form method="post" action="{% url 'ui:message_mark_attention' message.pk %}" class="card card-body">{% csrf_token %}
+  <label class="form-label small" for="{{ attention_form.reason.id_for_label }}">Why does this need attention?</label>{{ attention_form.reason }}
+  <div><button class="btn btn-sm btn-warning mt-2">Mark needs attention</button></div></form></div>
+{% if message.attention_reason %}<div class="alert alert-{% if message.status == 'filtered_out' %}secondary{% else %}warning{% endif %} small" style="white-space:pre-wrap">{{ message.attention_reason }}</div>{% endif %}
+
+<div class="row g-3">
+  <div class="col-xl-6">
+    <div class="card h-100"><div class="card-header fw-semibold d-flex justify-content-between">Extracted text <span class="small text-secondary">{{ message.body_text|length|intcomma }} chars · {{ message.detected_language|default:"?" }}</span></div>
+      <div class="card-body message-body" style="white-space:pre-wrap;max-height:70vh;overflow:auto">{% if message.body_text %}{{ message.body_text }}{% else %}<span class="text-secondary">(empty)</span>{% endif %}</div>
+      {% if message.raw_extracted_text %}<div class="card-footer"><details><summary class="small text-danger">Untrusted raw text (not stored as clean text)</summary><pre class="small mt-2" style="white-space:pre-wrap">{{ message.raw_extracted_text }}</pre></details></div>{% endif %}
+    </div>
+  </div>
+  <div class="col-xl-6">
+    <div class="card h-100"><div class="card-header fw-semibold d-flex justify-content-between">Original
+      {% if artifact %}<span><a class="small" href="{% url 'ui:artifact_download' artifact.pk %}" target="_blank" rel="noopener">open</a> · <a class="small" href="{% url 'ui:artifact_download' artifact.pk %}?download=1">download</a></span>{% endif %}</div>
+      {% if not artifact %}<div class="card-body text-secondary">No raw artifact.</div>
+      {% elif preview_kind == "frame" %}<iframe class="w-100 border-0" style="height:70vh" sandbox="" src="{% url 'ui:artifact_download' artifact.pk %}" title="Original snapshot"></iframe>
+      {% elif preview_kind == "pdf" %}<iframe class="w-100 border-0" style="height:70vh" src="{% url 'ui:artifact_download' artifact.pk %}" title="Original PDF"></iframe>
+      {% elif preview_kind == "image" %}<div class="card-body text-center"><img class="img-fluid" src="{% url 'ui:artifact_download' artifact.pk %}" alt="Original image"></div>
+      {% else %}<div class="card-body">This file type ({{ artifact.file_type }}) can't be previewed in the browser. <a href="{% url 'ui:artifact_download' artifact.pk %}?download=1">Download the original</a>.</div>{% endif %}
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mt-1">
+  <div class="col-lg-6">
+    <div class="card"><div class="card-header fw-semibold">Metadata</div>
+      <table class="table table-sm mb-0 small">
+        <tr><th>Source URL</th><td class="text-break-all">{% if message.source_url %}<a href="{{ message.source_url }}" target="_blank" rel="noopener">{{ message.source_url }}</a>{% else %}—{% endif %}</td></tr>
+        <tr><th>Item key</th><td class="text-break-all"><code>{{ message.source_item_key }}</code></td></tr>
+        <tr><th>Published</th><td>{{ message.published_at|default:"—" }} {% if message.published_at_text %}<span class="text-secondary">(“{{ message.published_at_text }}”)</span>{% endif %}</td></tr>
+        <tr><th>Collected</th><td>{{ message.collected_at }} · seen {{ message.seen_count }}× · last {{ message.last_seen_at|naturaltime }}</td></tr>
+        <tr><th>Extracted by</th><td>{{ message.extraction_method|default:"—" }}{% if message.extracting_rule %} · rule <a href="{{ message.extracting_rule.get_absolute_url }}">{{ message.extracting_rule.name }}</a>{% endif %}{% if message.extraction_confidence is not None %} · confidence {{ message.extraction_confidence|floatformat:2 }}{% endif %}</td></tr>
+        <tr><th>Content hash</th><td><code class="small">{{ message.content_hash|truncatechars:24 }}</code></td></tr>
+        <tr><th>Run</th><td>{% if message.fetch_run %}<a href="{{ message.fetch_run.get_absolute_url }}">#{{ message.fetch_run.pk }} {{ message.fetch_run.get_trigger_display }}</a>{% else %}—{% endif %}</td></tr>
+        {% if artifact %}<tr><th>Raw artifact</th><td>{{ artifact.file_type }} · {{ artifact.size|filesizeformat }} · {{ artifact.get_origin_display }}{% if artifact.original_filename %} · {{ artifact.original_filename }}{% endif %}<br><code class="small">sha256 {{ artifact.sha256 }}</code>{% if parent_artifact %}<br>inside <a href="{% url 'ui:artifact_download' parent_artifact.pk %}?download=1">{{ parent_artifact }}</a>{% endif %}</td></tr>{% endif %}
+        <tr><th>Processing state</th><td><code>{{ message.processing_state }}</code> <span class="text-secondary">(reserved for Scope 2)</span></td></tr>
+      </table>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card mb-3"><div class="card-header fw-semibold">Matched keywords {% if message.keyword_score %}<span class="small text-secondary">score {{ message.keyword_score|floatformat }}</span>{% endif %}</div><div class="card-body bn">
+      {% for k in message.matched_keywords %}<span class="badge text-bg-{% if k.kind == 'exclude' %}danger{% else %}primary{% endif %} me-1 mb-1" title="{{ k.set }}{% if k.tag %} · {{ k.tag }}{% endif %}">{{ k.term }}{% if k.matched and k.matched != k.term %} <span class="opacity-75">“{{ k.matched }}”</span>{% endif %}</span>{% empty %}<span class="text-secondary small">None</span>{% endfor %}
+    </div></div>
+    <div class="card mb-3"><div class="card-header fw-semibold">Extra fields</div>
+      <table class="table table-sm mb-0 small">{% for k, v in message.extra_fields.items %}<tr><th><code>{{ k }}</code></th><td class="bn">{{ v|short_value }}</td></tr>{% empty %}<tr><td class="text-secondary">None</td></tr>{% endfor %}</table></div>
+    <div class="card"><div class="card-header fw-semibold">Versions of this item</div>
+      <ul class="list-group list-group-flush small">{% for v in versions %}
+        <li class="list-group-item d-flex justify-content-between {% if v.pk == message.pk %}active{% endif %}"><a class="{% if v.pk == message.pk %}text-white{% endif %}" href="{{ v.get_absolute_url }}">v{{ v.version }} · {{ v.collected_at|date:"d M Y H:i" }}</a>{{ v.status|status_badge }}</li>
+      {% endfor %}</ul>
+      {% if message.duplicate_of %}<div class="card-footer small">Duplicate of <a href="{{ message.duplicate_of.get_absolute_url }}">#{{ message.duplicate_of.pk }} {{ message.duplicate_of.title|truncatechars:60 }}</a></div>{% endif %}
+      {% if duplicates %}<div class="card-footer small">Duplicates of this: {% for d in duplicates %}<a href="{{ d.get_absolute_url }}">#{{ d.pk }}</a> {% endfor %}</div>{% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

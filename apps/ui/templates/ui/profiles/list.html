@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Format profiles{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h4 mb-0">Format profiles <small class="text-secondary fs-6">reusable templates for new feeds</small></h1>
+  {% if is_ewce_admin %}<a class="btn btn-primary btn-sm" href="{% url 'ui:profile_create' %}"><i class="bi bi-plus-lg"></i> New profile</a>{% endif %}
+</div>
+<div class="row g-3">
+{% for profile in profiles %}
+  <div class="col-md-6 col-xl-4"><div class="card h-100"><div class="card-body">
+    <h2 class="h6"><a href="{{ profile.get_absolute_url }}">{{ profile.name }}</a>
+      {% if profile.is_example %}<span class="badge text-bg-light border">example</span>{% endif %}
+      {% if not profile.is_active %}<span class="badge text-bg-secondary">inactive</span>{% endif %}</h2>
+    <p class="small text-secondary">{{ profile.description }}</p>
+    <div class="small"><code>{{ profile.method }}</code> · {{ profile.rules_template|length }} rules · used by {{ profile.feed_count }} feed{{ profile.feed_count|pluralize }}</div>
+  </div></div></div>
+{% empty %}<p class="text-secondary">No profiles.</p>
+{% endfor %}
+</div>
+{% endblock %}

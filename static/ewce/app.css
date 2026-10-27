@@ -1,0 +1,15 @@
+body { font-family: system-ui, "Segoe UI", "Nirmala UI", "Noto Sans Bengali", "Vrinda", sans-serif; }
+.bn, .message-body { font-family: "Nirmala UI", "Noto Sans Bengali", "Vrinda", system-ui, sans-serif; line-height: 1.7; }
+.checkbox-grid .form-check-inline { min-width: 11rem; }
+.schema-form legend { font-size: .9rem; text-transform: uppercase; letter-spacing: .03em; }
+.table-config td, .table-config th { vertical-align: middle; }
+.color-dot { display: inline-block; width: .8rem; height: .8rem; border-radius: 50%; vertical-align: middle; }
+.stat-card .display-6 { font-weight: 600; }
+.provenance-default { color: var(--bs-secondary-color); }
+.provenance-source { color: var(--bs-primary); }
+.provenance-profile { color: var(--bs-purple, #6f42c1); }
+.provenance-feed { color: var(--bs-success); font-weight: 600; }
+.provenance-rule { color: var(--bs-danger); font-weight: 600; }
+pre.json { max-height: 26rem; overflow: auto; background: var(--bs-tertiary-bg); padding: .75rem; border-radius: .375rem; font-size: .8rem; }
+.text-break-all { word-break: break-all; }
+details > summary { cursor: pointer; }

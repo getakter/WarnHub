@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Import / export{% endblock %}
+{% block content %}
+<h1 class="h4">Configuration import / export</h1>
+<p class="text-secondary small">Move configuration between machines or share templates. Objects are matched by their codes and names
+  (source <code>code</code>, profile <code>slug</code>, keyword set <code>name</code>, feed <code>SOURCE/slug</code>, mailbox <code>label</code>), never by database ids.
+  Exports contain no collected data, no runtime state and no secrets (only env-var names).</p>
+<div class="row g-4">
+  <div class="col-lg-4">
+    <div class="card"><div class="card-header fw-semibold">Export</div><div class="card-body">
+      <p class="small mb-2">This database has {{ counts.sources }} sources, {{ counts.feeds }} feeds, {{ counts.profiles }} profiles,
+        {{ counts.keyword_sets }} keyword sets and {{ counts.mailboxes }} mailboxes.</p>
+      <a class="btn btn-primary" href="{% url 'ui:export_all' %}"><i class="bi bi-download"></i> Export everything (JSON)</a>
+      <p class="small text-secondary mt-3 mb-0">Single objects: use the <i class="bi bi-download"></i> Export button on a source, feed, profile or keyword set page.
+        A feed export includes its source, profile and keyword sets so it can be imported on its own.</p>
+    </div></div>
+  </div>
+  <div class="col-lg-8">
+    <div class="card"><div class="card-header fw-semibold">Import</div><div class="card-body">
+      <form method="post" enctype="multipart/form-data">{% csrf_token %}
+        {% for error in form.non_field_errors %}<div class="alert alert-danger">{{ error }}</div>{% endfor %}
+        <div class="row">{% for field in form %}{% include "ui/_field.html" with field=field wrapper_class="col-md-6" %}{% endfor %}</div>
+        <button class="btn btn-primary"><i class="bi bi-upload"></i> Import</button>
+        <span class="small text-secondary ms-2">All or nothing: if any object is invalid, nothing is changed.</span>
+      </form>
+    </div></div>
+    {% if report %}
+    <div class="card mt-3 {% if report.errors %}border-danger{% elif report.applied %}border-success{% endif %}">
+      <div class="card-header fw-semibold">{% if report.applied %}Imported{% elif report.errors %}Import failed — nothing changed{% else %}Dry run — what would happen{% endif %}
+        <span class="small fw-normal">{% for action, n in report.counts.items %}<span class="badge text-bg-light border ms-1">{{ action }} {{ n }}</span>{% endfor %}</span></div>
+      {% for error in report.errors %}<div class="alert alert-danger m-2 py-1 small">{{ error }}</div>{% endfor %}
+      {% for warning in report.warnings %}<div class="alert alert-warning m-2 py-1 small">{{ warning }}</div>{% endfor %}
+      <table class="table table-sm small mb-0"><thead><tr><th>Type</th><th>Key</th><th>Action</th><th>Detail</th></tr></thead>
+        <tbody>{% for kind, key, action, detail in report.actions %}<tr><td>{{ kind }}</td><td><code>{{ key }}</code></td>
+          <td><span class="badge text-bg-{% if action == 'create' %}success{% elif action == 'update' %}warning{% elif action == 'copy' %}info{% else %}secondary{% endif %}">{{ action }}</span></td><td>{{ detail }}</td></tr>
+        {% empty %}<tr><td colspan="4" class="text-secondary">Nothing to import.</td></tr>{% endfor %}</tbody></table>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

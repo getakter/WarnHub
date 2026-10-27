@@ -1,0 +1,16 @@
+{% load ewce %}<div class="mb-3 {{ wrapper_class }}">
+  {% if field.widget_type == "checkbox" %}
+    <div class="form-check">{{ field }} <label class="form-check-label" for="{{ field.id_for_label }}">{{ field.label }}</label></div>
+  {% else %}
+    <label class="form-label fw-medium" for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %} <span class="text-danger">*</span>{% endif %}</label>
+    {% if field.widget_type == "checkboxselectmultiple" %}
+      <div class="checkbox-grid">{% for cb in field %}<div class="form-check form-check-inline">{{ cb.tag }} <label class="form-check-label" for="{{ cb.id_for_label }}">{{ cb.choice_label }}</label></div>{% endfor %}</div>
+    {% elif field.field.widget.attrs|get_item:"data-test-format" %}
+      <div class="input-group">{{ field }}<button type="button" class="btn btn-outline-secondary btn-check-pattern" title="Check syntax"><i class="bi bi-check2-circle"></i> Check</button></div>
+      <div class="pattern-result small"></div>
+    {% else %}{{ field }}{% endif %}
+  {% endif %}
+  {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+  {% if field.field.inherited_display %}<div class="form-text text-info-emphasis"><i class="bi bi-arrow-down-left"></i> Inherited: <code>{{ field.field.inherited_display|truncatechars:150 }}</code></div>{% endif %}
+  {% for error in field.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+</div>

@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% load humanize %}
+{% block title %}Mailboxes{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h4 mb-0">Mailboxes <small class="text-secondary fs-6">agency emails routed to feeds</small></h1>
+  {% if is_ewce_admin %}<a class="btn btn-primary btn-sm" href="{% url 'ui:mailbox_create' %}"><i class="bi bi-plus-lg"></i> New mailbox</a>{% endif %}
+</div>
+<div class="card"><div class="table-responsive"><table class="table table-hover mb-0 table-config">
+  <thead><tr><th>Mailbox</th><th>Server</th><th>Folders</th><th>Rules</th><th>Last poll</th><th>Status</th></tr></thead>
+  <tbody>{% for m in mailboxes %}
+    <tr><td><a href="{{ m.get_absolute_url }}">{{ m.label }}</a> {% if m.is_example %}<span class="badge text-bg-light border">example</span>{% endif %}
+          <div class="small text-secondary">{{ m.username }}</div></td>
+      <td class="small">{{ m.get_protocol_display|default:m.protocol }} {{ m.host }}:{{ m.port }} ({{ m.security }})</td>
+      <td class="small">{{ m.watched_folders|join:", " }}</td><td>{{ m.rule_count }}</td>
+      <td class="small">{{ m.last_polled_at|naturaltime|default:"never" }}{% if m.last_error %}<div class="text-danger">{{ m.last_error|truncatechars:90 }}</div>{% endif %}</td>
+      <td>{% if m.is_active %}<span class="badge text-bg-success">active</span>{% else %}<span class="badge text-bg-light border">disabled</span>{% endif %}</td></tr>
+  {% empty %}<tr><td colspan="6" class="text-secondary">No mailboxes.</td></tr>{% endfor %}</tbody>
+</table></div></div>
+{% endblock %}

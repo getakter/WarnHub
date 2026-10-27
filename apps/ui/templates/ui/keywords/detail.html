@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% load humanize %}
+{% block title %}{{ kset.name }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-3">
+  <div><h1 class="h4 mb-1">{{ kset.name }} {% if not kset.is_active %}<span class="badge text-bg-secondary">inactive</span>{% endif %}</h1>
+    <div class="small text-secondary">{{ kset.description }}</div>
+    <div class="small">Used by: {% for feed in feeds %}<a href="{{ feed.get_absolute_url }}">{{ feed }}</a>{% if not forloop.last %}, {% endif %}{% empty %}no feeds{% endfor %}</div></div>
+  <div class="d-flex gap-1">
+    <a class="btn btn-sm btn-outline-secondary" href="{% url 'ui:keywordset_export_csv' kset.pk %}"><i class="bi bi-download"></i> CSV</a>
+    <a class="btn btn-sm btn-outline-secondary" href="{% url 'ui:export_object' 'keywordset' kset.pk %}"><i class="bi bi-download"></i> JSON</a>
+    {% if is_ewce_admin %}
+    <a class="btn btn-sm btn-outline-primary" href="{% url 'ui:keywordset_edit' kset.pk %}"><i class="bi bi-pencil"></i> Edit</a>
+    <form method="post" action="{% url 'ui:keywordset_clone' kset.pk %}">{% csrf_token %}<button class="btn btn-sm btn-outline-secondary"><i class="bi bi-copy"></i> Clone</button></form>
+    <form method="post" action="{% url 'ui:toggle_active' 'keywordset' kset.pk %}">{% csrf_token %}<button class="btn btn-sm btn-outline-secondary">{% if kset.is_active %}Disable{% else %}Enable{% endif %}</button></form>
+    <a class="btn btn-sm btn-outline-secondary" href="{% url 'ui:versions' 'sources.keywordset' kset.pk %}"><i class="bi bi-clock-history"></i> History</a>
+    <a class="btn btn-sm btn-outline-danger" href="{% url 'ui:keywordset_delete' kset.pk %}"><i class="bi bi-trash"></i></a>
+    {% endif %}
+  </div>
+</div>
+<div class="card mb-4"><div class="table-responsive"><table class="table table-sm table-hover mb-0 table-config">
+  <thead><tr><th>Term</th><th>Variants</th><th>Lang</th><th>Kind</th><th>Match</th><th>Tag</th><th>Weight</th><th></th></tr></thead>
+  <tbody>{% for k in keywords %}
+    <tr class="{% if not k.enabled %}text-secondary{% endif %}">
+      <td class="bn fw-medium">{{ k.term }}</td><td class="bn small">{{ k.variants|join:" · " }}</td><td>{{ k.language }}</td>
+      <td><span class="badge text-bg-{% if k.kind == 'exclude' %}danger{% elif k.kind == 'required' %}warning{% else %}primary{% endif %}">{{ k.kind }}</span></td>
+      <td class="small">{{ k.get_match_mode_display }}{% if k.case_sensitive %} · case{% endif %}</td><td>{{ k.tag }}</td><td>{{ k.weight }}</td>
+      <td class="text-end text-nowrap">{% if is_ewce_admin %}<a href="{% url 'ui:keyword_edit' kset.pk k.pk %}">edit</a>
+        <form method="post" action="{% url 'ui:keyword_delete' kset.pk k.pk %}" class="d-inline">{% csrf_token %}<button class="btn btn-link btn-sm p-0 text-danger" data-confirm="Delete keyword {{ k.term }}?">delete</button></form>{% endif %}</td>
+    </tr>{% empty %}<tr><td colspan="8" class="text-secondary">No keywords yet.</td></tr>{% endfor %}</tbody>
+</table></div></div>
+{% if is_ewce_admin %}
+<div class="row g-4">
+  <div class="col-lg-8"><div class="card"><div class="card-header fw-semibold">Add keyword</div><div class="card-body">
+    <form method="post" action="{% url 'ui:keyword_create' kset.pk %}">{% csrf_token %}
+      <div class="row">{% for field in add_form %}{% include "ui/_field.html" with field=field wrapper_class="col-md-4" %}{% endfor %}</div>
+      <button class="btn btn-primary btn-sm"><i class="bi bi-plus-lg"></i> Add</button>
+    </form>
+  </div></div></div>
+  <div class="col-lg-4"><div class="card"><div class="card-header fw-semibold">Bulk import (CSV)</div><div class="card-body">
+    <form method="post" enctype="multipart/form-data" action="{% url 'ui:keywordset_import_csv' kset.pk %}">{% csrf_token %}
+      {% for field in import_form %}{% include "ui/_field.html" with field=field %}{% endfor %}
+      <button class="btn btn-outline-primary btn-sm"><i class="bi bi-upload"></i> Import</button>
+    </form>
+  </div></div></div>
+</div>
+{% endif %}
+{% endblock %}

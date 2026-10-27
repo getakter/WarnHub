@@ -1,0 +1,2 @@
+# Optional: JavaScript rendering for feeds with requires_js (then run: playwright install chromium)
+playwright==1.64.1

@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% load ewce humanize %}
+{% block title %}{{ feed }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2">
+  <div>
+    <div class="small"><a href="{{ feed.source.get_absolute_url }}"><span class="color-dot" style="background:{{ feed.source.color }}"></span> {{ feed.source.name }}</a></div>
+    <h1 class="h4 mb-1">{{ feed.name }}
+      {% if feed.is_active %}<span class="badge text-bg-success">enabled</span>{% else %}<span class="badge text-bg-secondary">disabled</span>{% endif %}
+      {{ feed.health_status|status_badge:feed.get_health_status_display }}</h1>
+    <div class="small text-secondary">{{ method_plugin.label|default:feed.method }}{% if feed.profile %} · profile <a href="{{ feed.profile.get_absolute_url }}">{{ feed.profile }}</a>{% endif %}
+      {% for tag in feed.tags %}<span class="badge text-bg-light border">{{ tag }}</span>{% endfor %}</div>
+  </div>
+  <div class="d-flex gap-1 flex-wrap">
+    <a class="btn btn-sm btn-outline-primary" href="{% url 'ui:message_list' %}?feed={{ feed.pk }}"><i class="bi bi-inbox"></i> Messages</a>
+    <a class="btn btn-sm btn-outline-primary" href="{% url 'ui:upload' %}?feed={{ feed.pk }}"><i class="bi bi-upload"></i> Upload to this feed</a>
+    {% if runnable %}
+    <form method="post" action="{% url 'ui:feed_test' feed.pk %}">{% csrf_token %}<button class="btn btn-sm btn-outline-success" title="Dry run: nothing is saved"><i class="bi bi-eyeglasses"></i> Test feed</button></form>
+    <form method="post" action="{% url 'ui:feed_run_now' feed.pk %}">{% csrf_token %}<button class="btn btn-sm btn-success" data-confirm="Run this feed now and save what it collects? The page waits until it finishes." title="Runs while you wait"><i class="bi bi-play-fill"></i> Run now</button></form>
+    <form method="post" action="{% url 'ui:feed_queue_run' feed.pk %}">{% csrf_token %}<button class="btn btn-sm btn-outline-success" title="The background worker runs it"><i class="bi bi-send"></i> Run in background</button></form>
+    {% endif %}
+    {% if feed.entry_urls %}<a class="btn btn-sm btn-outline-secondary" href="{% url 'ui:inspect_url' %}?feed={{ feed.pk }}&url={{ feed.entry_urls.0|urlencode }}"><i class="bi bi-search"></i> Inspect</a>{% endif %}
+  {% if is_ewce_admin %}
+    <a class="btn btn-sm btn-primary" href="{% url 'ui:feed_edit' feed.pk %}"><i class="bi bi-pencil"></i> Edit</a>
+    <form method="post" action="{% url 'ui:toggle_active' 'feed' feed.pk %}">{% csrf_token %}<button class="btn btn-sm btn-outline-secondary">{% if feed.is_active %}Disable{% else %}Enable{% endif %}</button></form>
+    <form method="post" action="{% url 'ui:feed_clone' feed.pk %}">{% csrf_token %}<button class="btn btn-sm btn-outline-secondary"><i class="bi bi-copy"></i> Clone</button></form>
+    <form method="post" action="{% url 'ui:feed_save_as_profile' feed.pk %}" class="d-flex">{% csrf_token %}<input type="hidden" name="name" value="Profile from {{ feed.name }}"><button class="btn btn-sm btn-outline-secondary"><i class="bi bi-layers"></i> Save as profile</button></form>
+    <a class="btn btn-sm btn-outline-secondary" href="{% url 'ui:versions' 'sources.feed' feed.pk %}"><i class="bi bi-clock-history"></i> History</a>
+    <a class="btn btn-sm btn-outline-secondary" href="{% url 'ui:export_object' 'feed' feed.pk %}" title="Export as JSON (with its source, profile and keyword sets)"><i class="bi bi-download"></i> Export</a>
+    <a class="btn btn-sm btn-outline-danger" href="{% url 'ui:feed_delete' feed.pk %}"><i class="bi bi-trash"></i></a>
+  {% endif %}
+  </div>
+</div>
+{% if feed.description %}<div class="alert {% if 'CONFIGURE ME' in feed.description %}alert-warning{% else %}alert-light border{% endif %} small">{{ feed.description|linebreaksbr }}</div>{% endif %}
+
+<ul class="nav nav-tabs mb-3" role="tablist">
+  <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#overview">Overview</button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#rules">Extraction rules <span class="badge text-bg-secondary">{{ rules|length }}</span></button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#fields">Custom fields <span class="badge text-bg-secondary">{{ custom_fields|length }}</span></button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#keywords">Keywords</button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#effective">Effective configuration</button></li>
+</ul>
+<div class="tab-content">
+  <div class="tab-pane fade show active" id="overview">
+    <div class="row g-4">
+      <div class="col-lg-6"><div class="card"><div class="card-body small">
+        <dl class="row mb-0">
+          <dt class="col-5">Entry URLs</dt><dd class="col-7">{% for url in feed.entry_urls %}<div class="text-break-all"><a href="{{ url }}" target="_blank" rel="noopener">{{ url }}</a></div>{% empty %}<span class="text-warning-emphasis">none set</span>{% endfor %}</dd>
+          <dt class="col-5">Schedule</dt><dd class="col-7">{% if feed.schedule_type == "interval" %}every {{ feed.interval_minutes }} minutes{% elif feed.schedule_type == "cron" %}<code>{{ feed.cron_expression }}</code>{% else %}manual only{% endif %}
+            {% if feed.active_hours_start %} · between {{ feed.active_hours_start|time:"H:i" }}–{{ feed.active_hours_end|time:"H:i" }}{% endif %}</dd>
+          <dt class="col-5">Expected frequency</dt><dd class="col-7">{% if feed.expected_frequency_hours %}new item at least every {{ feed.expected_frequency_hours }} h{% else %}—{% endif %}</dd>
+          <dt class="col-5">Max items per run</dt><dd class="col-7">{{ feed.max_items_per_run }}</dd>
+          <dt class="col-5">Lookback</dt><dd class="col-7">{% if feed.lookback_days %}{{ feed.lookback_days }} days{% else %}no limit{% endif %}{% if feed.backfill_on_first_run %} (backfill on first run){% endif %}</dd>
+          <dt class="col-5">Method options</dt><dd class="col-7"><pre class="json mb-0">{{ method_config|pretty_json }}</pre></dd>
+        </dl>
+      </div></div></div>
+      <div class="col-lg-6"><div class="card"><div class="card-body small">
+        <dl class="row mb-0">
+          <dt class="col-5">Last run</dt><dd class="col-7">{{ feed.last_run_at|naturaltime|default:"never" }}</dd>
+          <dt class="col-5">Last success</dt><dd class="col-7">{{ feed.last_success_at|naturaltime|default:"never" }}</dd>
+          <dt class="col-5">Last new message</dt><dd class="col-7">{{ feed.last_new_message_at|naturaltime|default:"never" }}</dd>
+          <dt class="col-5">Next scheduled run</dt><dd class="col-7">{{ feed.next_run_at|default:"—" }}</dd>
+          <dt class="col-5">Health detail</dt><dd class="col-7">{{ feed.health_detail|default:"—" }}</dd>
+          {% if feed.last_error %}<dt class="col-5">Last error</dt><dd class="col-7 text-danger">{{ feed.last_error|truncatechars:400 }}</dd>{% endif %}
+        </dl>
+        <hr><div class="fw-semibold mb-1">Recent runs</div>
+        {% for run in recent_runs %}<div><a href="{{ run.get_absolute_url }}">#{{ run.pk }}</a> {{ run.started_at|naturaltime }} {{ run.get_trigger_display }} {{ run.status|status_badge }}</div>{% empty %}<div class="text-secondary">none</div>{% endfor %}
+        <div><a href="{% url 'ui:run_list' %}?feed={{ feed.pk }}">all runs of this feed</a></div>
+        <hr><div class="fw-semibold mb-1">Config changes</div>
+        {% for v in versions %}<div>v{{ v.version }} · {{ v.get_change_type_display }} · {{ v.created_at|naturaltime }} · {{ v.created_by|default:"system" }}{% if v.comment %} — {{ v.comment }}{% endif %}</div>{% endfor %}
+      </div></div></div>
+    </div>
+  </div>
+
+  <div class="tab-pane fade" id="rules">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <p class="small text-secondary mb-0">Rules run top to bottom. Each takes the list of items from the previous rule. Parse-phase rules (PDF / Office / Email) set how files are read.</p>
+      {% if is_ewce_admin %}
+      <div class="dropdown"><button class="btn btn-sm btn-primary dropdown-toggle" data-bs-toggle="dropdown"><i class="bi bi-plus-lg"></i> Add rule</button>
+        <ul class="dropdown-menu dropdown-menu-end">{% for name, plugin in rule_plugins.items %}<li><a class="dropdown-item" href="{% url 'ui:rule_create' feed.pk %}?type={{ name }}">{{ plugin.label }}</a></li>{% endfor %}</ul></div>
+      {% endif %}
+    </div>
+    <div class="card"><div class="table-responsive"><table class="table table-sm table-hover mb-0 table-config">
+      <thead><tr><th>#</th><th>Rule</th><th>Type</th><th>Applies to</th><th>On no match</th><th></th></tr></thead>
+      <tbody>
+      {% for rule in rules %}
+        <tr class="{% if not rule.enabled %}text-secondary{% endif %}">
+          <td>{{ forloop.counter }}</td>
+          <td><a href="{% url 'ui:rule_edit' feed.pk rule.pk %}">{{ rule.name }}</a> {% if not rule.enabled %}<span class="badge text-bg-light">off</span>{% endif %}
+            {% if rule.settings_override %}<span class="badge text-bg-danger-subtle text-danger-emphasis" title="Overrides feed settings">override</span>{% endif %}</td>
+          <td class="small"><code>{{ rule.rule_type }}</code></td>
+          <td class="small">{{ rule.applies_to_types|join:", "|default:"all types" }}{% if rule.applies_to_url_pattern %} · <code>{{ rule.applies_to_url_pattern }}</code>{% endif %}</td>
+          <td class="small">{{ rule.get_on_no_match_display }}</td>
+          <td class="text-end text-nowrap">{% if is_ewce_admin %}
+            <form method="post" action="{% url 'ui:rule_action' feed.pk rule.pk 'up' %}" class="d-inline">{% csrf_token %}<button class="btn btn-sm btn-link p-0" title="Move up"><i class="bi bi-arrow-up"></i></button></form>
+            <form method="post" action="{% url 'ui:rule_action' feed.pk rule.pk 'down' %}" class="d-inline">{% csrf_token %}<button class="btn btn-sm btn-link p-0" title="Move down"><i class="bi bi-arrow-down"></i></button></form>
+            <form method="post" action="{% url 'ui:rule_action' feed.pk rule.pk 'toggle' %}" class="d-inline">{% csrf_token %}<button class="btn btn-sm btn-link p-0">{% if rule.enabled %}disable{% else %}enable{% endif %}</button></form>
+            <form method="post" action="{% url 'ui:rule_action' feed.pk rule.pk 'clone' %}" class="d-inline">{% csrf_token %}<button class="btn btn-sm btn-link p-0">clone</button></form>
+            <a class="btn btn-sm btn-link p-0" href="{% url 'ui:versions' 'sources.extractionrule' rule.pk %}">history</a>
+            <a class="btn btn-sm btn-link p-0 text-danger" href="{% url 'ui:rule_delete' feed.pk rule.pk %}">delete</a>
+          {% endif %}</td>
+        </tr>
+      {% empty %}<tr><td colspan="6" class="text-secondary">No rules: the whole page/document text becomes one message.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table></div></div>
+  </div>
+
+  <div class="tab-pane fade" id="fields">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <p class="small text-secondary mb-0">Extra named values captured into each message (e.g. bulletin_number, issue_time). Stored as-is; no interpretation.</p>
+      {% if is_ewce_admin %}<a class="btn btn-sm btn-primary" href="{% url 'ui:field_create' feed.pk %}"><i class="bi bi-plus-lg"></i> Add custom field</a>{% endif %}
+    </div>
+    <div class="card"><table class="table table-sm mb-0 table-config">
+      <thead><tr><th>Field</th><th>Label</th><th>Extractor</th><th>Options</th><th></th></tr></thead>
+      <tbody>{% for field in custom_fields %}
+        <tr class="{% if not field.enabled %}text-secondary{% endif %}"><td><code>{{ field.name }}</code>{% if field.required %} <span class="badge text-bg-warning">required</span>{% endif %}</td><td>{{ field.label }}</td><td>{{ field.extractor }}</td>
+          <td class="small"><code>{{ field.config|short_value }}</code></td>
+          <td class="text-end">{% if is_ewce_admin %}<a href="{% url 'ui:field_edit' feed.pk field.pk %}">edit</a> · <a href="{% url 'ui:versions' 'sources.customfielddefinition' field.pk %}">history</a> · <a class="text-danger" href="{% url 'ui:field_delete' feed.pk field.pk %}">delete</a>{% endif %}</td></tr>
+      {% empty %}<tr><td colspan="5" class="text-secondary">No custom fields.</td></tr>{% endfor %}</tbody>
+    </table></div>
+  </div>
+
+  <div class="tab-pane fade" id="keywords">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <p class="small text-secondary mb-0">Capture mode: <strong>{{ capture_mode }}</strong>. Keyword sets assigned to this feed:</p>
+      {% if is_ewce_admin %}<a class="btn btn-sm btn-primary" href="{% url 'ui:feed_keyword_sets' feed.pk %}"><i class="bi bi-tags"></i> Choose keyword sets</a>{% endif %}
+    </div>
+    <ul class="list-group">{% for link in keyword_links %}<li class="list-group-item"><a href="{{ link.keyword_set.get_absolute_url }}">{{ link.keyword_set }}</a></li>
+      {% empty %}<li class="list-group-item text-secondary">None: matched_keywords will be empty and keyword capture modes keep nothing.</li>{% endfor %}</ul>
+  </div>
+
+  <div class="tab-pane fade" id="effective">
+    <p class="small text-secondary">The merged settings this feed actually uses. Colour shows which layer set each value:
+      <span class="provenance-default">built-in default</span> → <span class="provenance-source">source</span> → <span class="provenance-profile">format profile</span> → <span class="provenance-feed">feed</span> (→ <span class="provenance-rule">rule override</span>, per rule).</p>
+    <div class="card"><table class="table table-sm mb-0 small">
+      <thead><tr><th>Setting</th><th>Value</th><th>Set by</th></tr></thead>
+      <tbody>{% for path, value, layer, code in effective_rows %}<tr><td><code>{{ path }}</code></td><td class="text-break-all">{{ value|short_value }}</td><td class="provenance-{{ code }}">{{ layer }}</td></tr>{% endfor %}</tbody>
+    </table></div>
+  </div>
+</div>
+{% endblock %}

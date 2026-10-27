@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% load ewce humanize %}
+{% block title %}History{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h4 mb-0">Version history: {{ object|default:"(deleted object)" }} <small class="text-secondary fs-6">{{ verbose_name }}</small></h1>
+  {% if object %}<a class="btn btn-sm btn-outline-secondary" href="{{ object.get_absolute_url|default:'#' }}"><i class="bi bi-arrow-left"></i> Back</a>{% endif %}
+</div>
+<p class="small text-secondary">Every save stores a full snapshot. Rolling back restores the snapshot and records it as a new version, so you can always undo a rollback.</p>
+{% for v in versions %}
+<div class="card mb-2">
+  <div class="card-header d-flex justify-content-between align-items-center py-2">
+    <span><strong>v{{ v.version }}</strong> · {{ v.get_change_type_display }} · {{ v.created_at }} ({{ v.created_at|naturaltime }}) · {{ v.created_by|default:"system" }}{% if v.comment %} — <em>{{ v.comment }}</em>{% endif %}</span>
+    <span class="d-flex gap-2">
+      <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#snap-{{ v.pk }}">Snapshot</button>
+      {% if is_ewce_admin and object and not forloop.first %}
+      <form method="post" action="{% url 'ui:version_rollback' v.pk %}">{% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}">
+        <button class="btn btn-sm btn-warning" data-confirm="Roll back to v{{ v.version }}?"><i class="bi bi-arrow-counterclockwise"></i> Roll back to this</button></form>
+      {% endif %}
+    </span>
+  </div>
+  {% if v.changes %}<table class="table table-sm mb-0 small"><thead><tr><th>Field</th><th>Before</th><th>After</th></tr></thead><tbody>
+    {% for key, old, new in v.changes %}<tr><td><code>{{ key }}</code></td><td class="text-danger text-break-all">{{ old|short_value }}</td><td class="text-success text-break-all">{{ new|short_value }}</td></tr>{% endfor %}
+  </tbody></table>{% endif %}
+  <div id="snap-{{ v.pk }}" class="collapse"><pre class="json m-2">{{ v.snapshot|pretty_json }}</pre></div>
+</div>
+{% empty %}<p class="text-secondary">No versions recorded.</p>
+{% endfor %}
+{% endblock %}

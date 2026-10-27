@@ -1,0 +1,44 @@
+<div class="card mt-4 border-success" id="test-panel">
+  <div class="card-header fw-semibold text-success-emphasis"><i class="bi bi-eyeglasses"></i> Test this {{ test_panel.target }} before saving
+    <span class="small text-secondary fw-normal">uses the values currently in the form above; nothing is saved</span></div>
+  <div class="card-body">
+    <div class="row g-2 align-items-end">
+      <div class="col-lg-6"><label class="form-label small mb-0" for="test-url">URL</label>
+        <input id="test-url" class="form-control form-control-sm" value="{{ test_panel.feed.entry_urls.0|default:'' }}" placeholder="https://…"></div>
+      <div class="col-lg-2"><button type="button" class="btn btn-sm btn-success w-100" data-test-mode="url"><i class="bi bi-globe"></i> Test on URL</button></div>
+      <div class="col-lg-4 d-flex gap-2 align-items-end"><div class="flex-grow-1"><label class="form-label small mb-0" for="test-file">…or a file</label>
+        <input id="test-file" type="file" class="form-control form-control-sm"></div>
+        <button type="button" class="btn btn-sm btn-outline-success" data-test-mode="file">Test file</button></div>
+      <div class="col-12 d-flex gap-2 align-items-center small mt-2">
+        <span>Check against history:</span>
+        <select id="test-limit" class="form-select form-select-sm w-auto"><option>3</option><option selected>5</option><option>10</option><option>20</option></select>
+        <span>last stored artifacts</span>
+        <button type="button" class="btn btn-sm btn-outline-success" data-test-mode="history"><i class="bi bi-clock-history"></i> Test on history</button>
+      </div>
+    </div>
+    <div id="test-results" class="mt-3"></div>
+  </div>
+</div>
+<script>
+(function () {
+  var panel = document.getElementById("test-panel");
+  var out = document.getElementById("test-results");
+  panel.querySelectorAll("[data-test-mode]").forEach(function (button) {
+    button.addEventListener("click", function () {
+      var body = new FormData(document.getElementById("main-form"));
+      body.append("_test_target", "{{ test_panel.target }}");
+      body.append("_test_object_pk", "{{ test_panel.object_pk }}");
+      body.append("_test_mode", button.dataset.testMode);
+      body.append("_test_url", document.getElementById("test-url").value);
+      body.append("_test_limit", document.getElementById("test-limit").value);
+      var file = document.getElementById("test-file").files[0];
+      if (file) body.append("_test_file", file);
+      out.innerHTML = '<div class="text-secondary"><span class="spinner-border spinner-border-sm"></span> Testing… (fetching can take a few seconds)</div>';
+      fetch("{% url 'ui:test_extraction' test_panel.feed.pk %}", {method: "POST", body: body, headers: {"X-CSRFToken": window.EWCE.csrf}})
+        .then(function (r) { return r.text(); })
+        .then(function (html) { out.innerHTML = html; })
+        .catch(function (err) { out.innerHTML = '<div class="alert alert-danger">Test failed: ' + err + '</div>'; });
+    });
+  });
+})();
+</script>

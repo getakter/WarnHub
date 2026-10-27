@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Plugins{% endblock %}
+{% block content %}
+<h1 class="h4">Plugins <small class="text-secondary fs-6">everything configurable is a plugin with a self-describing form</small></h1>
+<div class="alert alert-light border small">
+  To add a plugin without touching core code, put a <code>.py</code> file in <code>custom_plugins/</code> (see <code>custom_plugins/example_plugin.py</code>)
+  and restart the server and worker. Its class declares a <code>config_schema</code>; the form below is generated from it automatically.
+</div>
+<div class="alert alert-light border small"><strong>Optional components:</strong>
+  OCR {% if optional.ocr %}<span class="badge text-bg-success">available</span>{% else %}<span class="badge text-bg-secondary">off</span>{% endif %} {{ optional.ocr_message }} ·
+  JavaScript rendering {% if optional.js %}<span class="badge text-bg-success">available</span>{% else %}<span class="badge text-bg-secondary">off</span> (install Playwright and set EWCE_ENABLE_PLAYWRIGHT=True){% endif %}</div>
+{% for path, error in load_errors %}<div class="alert alert-danger small"><strong>Failed to load {{ path }}</strong><pre class="mb-0">{{ error }}</pre></div>{% endfor %}
+{% for group in kinds %}
+  <h2 class="h5 mt-4">{{ group.label }} <small class="text-secondary">({{ group.plugins|length }})</small></h2>
+  <div class="accordion" id="acc-{{ group.kind }}">
+  {% for p in group.plugins %}
+    <div class="accordion-item">
+      <h3 class="accordion-header"><button class="accordion-button collapsed py-2" type="button" data-bs-toggle="collapse" data-bs-target="#p-{{ group.kind }}-{{ p.info.name }}">
+        <code class="me-2">{{ p.info.name }}</code> {{ p.info.label }} {% if not p.info.builtin %}<span class="badge text-bg-info ms-2">custom</span>{% endif %}
+        <span class="small text-secondary ms-3">{{ p.info.description|truncatechars:90 }}</span></button></h3>
+      <div id="p-{{ group.kind }}-{{ p.info.name }}" class="accordion-collapse collapse"><div class="accordion-body">
+        <p class="small">{{ p.info.description }} <span class="text-secondary">({{ p.info.module }})</span></p>
+        {% if p.form %}
+        <div class="row"><div class="col-lg-7">
+          <div class="small text-secondary mb-2">Form preview</div>
+          {% include "ui/_schema_form.html" with sform=p.form title="Options" %}
+        </div><div class="col-lg-5"><div class="small text-secondary mb-2">JSON Schema</div><pre class="json">{{ p.schema_json }}</pre></div></div>
+        {% else %}<p class="text-secondary small mb-0">No options.</p>{% endif %}
+      </div></div>
+    </div>
+  {% endfor %}
+  </div>
+{% endfor %}
+{% endblock %}

@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% load ewce %}
+{% block title %}Inbox preview · {{ mailbox.label }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h4 mb-0">Inbox preview: {{ mailbox.label }} <small class="text-secondary fs-6">read-only, nothing is marked or collected</small></h1>
+  <div class="d-flex gap-2"><a class="btn btn-sm btn-outline-primary" href="{% url 'ui:mailbox_tester' mailbox.pk %}">Rule tester</a>
+    <a class="btn btn-sm btn-outline-secondary" href="{{ mailbox.get_absolute_url }}"><i class="bi bi-arrow-left"></i> Mailbox</a></div>
+</div>
+{% if error %}<div class="alert alert-danger">{{ error }}</div>{% endif %}
+<div class="card"><div class="table-responsive"><table class="table table-sm small mb-0 align-top">
+  <thead><tr><th>Date</th><th>From</th><th>Subject</th><th>Attachments</th><th>Would go to</th><th>Already</th></tr></thead>
+  <tbody>{% for row in rows %}
+    <tr><td class="text-nowrap">{{ row.info.date|date:"d M Y H:i"|default:"—" }}<div class="text-secondary">{{ row.folder }} #{{ row.uid }}</div></td>
+      <td>{{ row.info.from_address }}</td><td class="bn">{{ row.info.subject|default:"(no subject)" }}</td>
+      <td>{% for a in row.info.attachments %}<div>{% if a.inline %}<span class="text-secondary">inline</span> {% endif %}<span class="badge text-bg-light border">{{ a.file_type }}</span> {{ a.filename|default:a.content_type|truncatechars:40 }} ({{ a.size|filesizeformat }})</div>{% endfor %}</td>
+      <td>{% for rule, checks in row.matches %}<div><span class="badge text-bg-success">{{ rule.name }}</span> → {{ rule.target_feed }}</div>{% empty %}<span class="badge text-bg-dark">unrouted</span>{% endfor %}</td>
+      <td>{% if row.processed %}{{ row.processed|status_badge }}{% else %}<span class="text-secondary">new</span>{% endif %}</td></tr>
+  {% empty %}{% if not error %}<tr><td colspan="6" class="text-secondary">No emails in the watched folders.</td></tr>{% endif %}{% endfor %}</tbody>
+</table></div></div>
+{% endblock %}

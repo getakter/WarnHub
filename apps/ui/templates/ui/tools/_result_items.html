@@ -1,0 +1,20 @@
+{% load ewce %}<div class="table-responsive"><table class="table table-sm small align-top mb-0">
+  <thead><tr><th>Status</th><th>Title / URL / key</th><th>Published</th><th>Extra fields</th><th>Keywords & flags</th><th>Body (start)</th></tr></thead>
+  <tbody>
+  {% for r in results %}
+    <tr>
+      <td>{{ r.status|status_badge }}{% if r.message_id %}<div><a href="{% url 'ui:message_detail' r.message_id %}" target="_blank">stored #{{ r.message_id }}</a></div>{% endif %}</td>
+      <td class="bn" style="max-width:22rem"><strong>{{ r.title|default:"(no title)"|truncatechars:120 }}</strong>
+        {% if r.url %}<div class="text-break-all"><a href="{{ r.url }}" target="_blank" rel="noopener">{{ r.url|truncatechars:90 }}</a></div>{% endif %}
+        {% if r.key %}<div class="text-secondary text-break-all"><code>{{ r.key|truncatechars:90 }}</code></div>{% endif %}</td>
+      <td class="text-nowrap">{{ r.published_at|default:"" }}{% if r.published_at_text %}<div class="text-secondary bn">“{{ r.published_at_text|truncatechars:40 }}”</div>{% endif %}</td>
+      <td class="bn">{% for k, v in r.extra_fields.items %}<div><code>{{ k }}</code>: {{ v|short_value }}</div>{% endfor %}</td>
+      <td class="bn">{% for k in r.matched_keywords %}<span class="badge text-bg-primary-subtle text-primary-emphasis">{{ k }}</span> {% endfor %}
+        {% for f in r.flags %}<span class="badge text-bg-warning-subtle text-warning-emphasis">{{ f }}</span> {% endfor %}
+        {% if r.reason %}<div class="text-danger" style="white-space:pre-wrap">{{ r.reason|truncatechars:300 }}</div>{% endif %}</td>
+      <td class="bn" style="white-space:pre-wrap;max-width:28rem">{{ r.body_preview|truncatechars:300 }}</td>
+    </tr>
+  {% empty %}<tr><td colspan="6" class="text-secondary">No items.</td></tr>
+  {% endfor %}
+  </tbody>
+</table></div>
